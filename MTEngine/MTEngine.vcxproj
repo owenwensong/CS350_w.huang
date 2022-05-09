@@ -17,7 +17,6 @@
       <Configuration>Release</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
-
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>
@@ -53,25 +52,47 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
-
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
-  <ImportGroup Label="Shared" >
+  <ImportGroup Label="Shared">
   </ImportGroup>
-    <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-      <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    </ImportGroup>
-    <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-      <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    </ImportGroup>
-    <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-      <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    </ImportGroup>
-    <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-      <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-    </ImportGroup>
-
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\prop-pages\buildDirectories.props" />
+    <Import Project="..\prop-pages\includeVulkan.props" />
+    <Import Project="..\prop-pages\vklib32.props" />
+    <Import Project="..\prop-pages\includeGLM.props" />
+    <Import Project="..\prop-pages\includeAssimp.props" />
+    <Import Project="..\prop-pages\includeTinyddsloader.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\prop-pages\buildDirectories.props" />
+    <Import Project="..\prop-pages\includeVulkan.props" />
+    <Import Project="..\prop-pages\vklib32.props" />
+    <Import Project="..\prop-pages\includeGLM.props" />
+    <Import Project="..\prop-pages\includeAssimp.props" />
+    <Import Project="..\prop-pages\includeTinyddsloader.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\prop-pages\buildDirectories.props" />
+    <Import Project="..\prop-pages\includeVulkan.props" />
+    <Import Project="..\prop-pages\vklib64.props" />
+    <Import Project="..\prop-pages\includeGLM.props" />
+    <Import Project="..\prop-pages\includeAssimp.props" />
+    <Import Project="..\prop-pages\includeTinyddsloader.props" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="..\prop-pages\buildDirectories.props" />
+    <Import Project="..\prop-pages\includeVulkan.props" />
+    <Import Project="..\prop-pages\vklib64.props" />
+    <Import Project="..\prop-pages\includeGLM.props" />
+    <Import Project="..\prop-pages\includeAssimp.props" />
+    <Import Project="..\prop-pages\includeTinyddsloader.props" />
+  </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
@@ -85,13 +106,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
-
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>Level4</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -100,12 +121,13 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>Level4</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -116,10 +138,11 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>Level4</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -128,12 +151,13 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
-      <WarningLevel>Level3</WarningLevel>
+      <WarningLevel>Level4</WarningLevel>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -142,8 +166,45 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
-
-  <ItemGroup></ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\handlers\windowHandler.h" />
+    <ClInclude Include="include\utility\CStrHash.hpp" />
+    <ClInclude Include="include\utility\lockableObject.hpp" />
+    <ClInclude Include="include\utility\matrixTransforms.h" />
+    <ClInclude Include="include\utility\OBJLoader.h" />
+    <ClInclude Include="include\utility\Singleton.h" />
+    <ClInclude Include="include\utility\Singleton.hpp" />
+    <ClInclude Include="include\utility\Timer.h" />
+    <ClInclude Include="include\utility\vertices.h" />
+    <ClInclude Include="include\utility\windowsInclude.h" />
+    <ClInclude Include="include\vulkanHelpers\printWarnings.h" />
+    <ClInclude Include="include\vulkanHelpers\vulkanBuffer.h" />
+    <ClInclude Include="include\vulkanHelpers\vulkanDevice.h" />
+    <ClInclude Include="include\vulkanHelpers\vulkanInstance.h" />
+    <ClInclude Include="include\vulkanHelpers\vulkanModel.h" />
+    <ClInclude Include="include\vulkanHelpers\vulkanPipeline.h" />
+    <ClInclude Include="include\vulkanHelpers\vulkanTexture.h" />
+    <ClInclude Include="include\vulkanHelpers\vulkanWindow.h" />
+    <ClInclude Include="include\windowsHelpers\windowsInput.h" />
+    <ClInclude Include="include\windowsHelpers\windowsWindow.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\handlers\windowHandler.cpp" />
+    <ClCompile Include="src\libImplementations\tinyddsloader_Implementation.cpp" />
+    <ClCompile Include="src\main.cpp" />
+    <ClCompile Include="src\utility\matrixTransforms.cpp" />
+    <ClCompile Include="src\utility\OBJLoader.cpp" />
+    <ClCompile Include="src\utility\Timer.cpp" />
+    <ClCompile Include="src\vulkanHelpers\printWarnings.cpp" />
+    <ClCompile Include="src\vulkanHelpers\vulkanBuffer.cpp" />
+    <ClCompile Include="src\vulkanHelpers\vulkanDevice.cpp" />
+    <ClCompile Include="src\vulkanHelpers\vulkanInstance.cpp" />
+    <ClCompile Include="src\vulkanHelpers\vulkanModel.cpp" />
+    <ClCompile Include="src\vulkanHelpers\vulkanTexture.cpp" />
+    <ClCompile Include="src\vulkanHelpers\vulkanWindow.cpp" />
+    <ClCompile Include="src\windowsHelpers\windowsInput.cpp" />
+    <ClCompile Include="src\windowsHelpers\windowsWindow.cpp" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

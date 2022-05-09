@@ -13,5 +13,141 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Header Files\Handlers">
+      <UniqueIdentifier>{171bc365-3c43-4ade-ae9d-87f8f40cbd8a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Utility">
+      <UniqueIdentifier>{3423d453-2066-4edf-af3e-792307c7e086}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\vulkanHelpers">
+      <UniqueIdentifier>{c0cde909-72b9-4aab-bfe1-06bbcf1984f6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\windowsHelpers">
+      <UniqueIdentifier>{64f785db-6a8e-42c1-9fc3-881c5ed4d7bc}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Handlers">
+      <UniqueIdentifier>{107d68c0-563c-4354-854e-5f0042de5746}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Utility">
+      <UniqueIdentifier>{5d229741-6c9b-4e37-9e4c-0781f7356717}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\LibImplementations">
+      <UniqueIdentifier>{d765f105-bae0-4a97-8c06-bebb6153a046}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\vulkanHelpers">
+      <UniqueIdentifier>{da0cb4f1-9308-491c-9ce8-fbf0b47f67fd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\windowsHelpers">
+      <UniqueIdentifier>{5b3ede49-3162-4a6f-82cb-46b5245c78d3}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="include\handlers\windowHandler.h">
+      <Filter>Header Files\Handlers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\utility\CStrHash.hpp">
+      <Filter>Header Files\Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="include\utility\lockableObject.hpp">
+      <Filter>Header Files\Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="include\utility\matrixTransforms.h">
+      <Filter>Header Files\Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="include\utility\OBJLoader.h">
+      <Filter>Header Files\Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="include\utility\Singleton.h">
+      <Filter>Header Files\Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="include\utility\Singleton.hpp">
+      <Filter>Header Files\Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="include\utility\Timer.h">
+      <Filter>Header Files\Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="include\utility\vertices.h">
+      <Filter>Header Files\Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="include\utility\windowsInclude.h">
+      <Filter>Header Files\Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="include\vulkanHelpers\printWarnings.h">
+      <Filter>Header Files\vulkanHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\vulkanHelpers\vulkanBuffer.h">
+      <Filter>Header Files\vulkanHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\vulkanHelpers\vulkanDevice.h">
+      <Filter>Header Files\vulkanHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\vulkanHelpers\vulkanInstance.h">
+      <Filter>Header Files\vulkanHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\vulkanHelpers\vulkanModel.h">
+      <Filter>Header Files\vulkanHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\vulkanHelpers\vulkanPipeline.h">
+      <Filter>Header Files\vulkanHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\vulkanHelpers\vulkanTexture.h">
+      <Filter>Header Files\vulkanHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\vulkanHelpers\vulkanWindow.h">
+      <Filter>Header Files\vulkanHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\windowsHelpers\windowsInput.h">
+      <Filter>Header Files\windowsHelpers</Filter>
+    </ClInclude>
+    <ClInclude Include="include\windowsHelpers\windowsWindow.h">
+      <Filter>Header Files\windowsHelpers</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\handlers\windowHandler.cpp">
+      <Filter>Source Files\Handlers</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\matrixTransforms.cpp">
+      <Filter>Source Files\Utility</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\OBJLoader.cpp">
+      <Filter>Source Files\Utility</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\Timer.cpp">
+      <Filter>Source Files\Utility</Filter>
+    </ClCompile>
+    <ClCompile Include="src\libImplementations\tinyddsloader_Implementation.cpp">
+      <Filter>Source Files\LibImplementations</Filter>
+    </ClCompile>
+    <ClCompile Include="src\vulkanHelpers\printWarnings.cpp">
+      <Filter>Source Files\vulkanHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="src\vulkanHelpers\vulkanBuffer.cpp">
+      <Filter>Source Files\vulkanHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="src\vulkanHelpers\vulkanDevice.cpp">
+      <Filter>Source Files\vulkanHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="src\vulkanHelpers\vulkanInstance.cpp">
+      <Filter>Source Files\vulkanHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="src\vulkanHelpers\vulkanModel.cpp">
+      <Filter>Source Files\vulkanHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="src\vulkanHelpers\vulkanTexture.cpp">
+      <Filter>Source Files\vulkanHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="src\vulkanHelpers\vulkanWindow.cpp">
+      <Filter>Source Files\vulkanHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="src\windowsHelpers\windowsInput.cpp">
+      <Filter>Source Files\windowsHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="src\windowsHelpers\windowsWindow.cpp">
+      <Filter>Source Files\windowsHelpers</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
