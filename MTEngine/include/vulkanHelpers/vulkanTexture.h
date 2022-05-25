@@ -31,7 +31,7 @@ struct vulkanTexture
     VkSampleCountFlagBits m_Samples { VK_SAMPLE_COUNT_1_BIT };
   };
 
-  VkExtent3D      m_Extent  { .width{ 0 }, .height{ 0 }, .depth{ 0 } };
+  VkExtent3D      m_Extent  { 0, 0, 0 };
   VkImage         m_Image   { VK_NULL_HANDLE };
   VkDeviceMemory  m_Memory  { VK_NULL_HANDLE };
   VkImageView     m_View    { VK_NULL_HANDLE };

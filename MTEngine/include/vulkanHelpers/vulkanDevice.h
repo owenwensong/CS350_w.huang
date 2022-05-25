@@ -56,7 +56,7 @@ public: // just realease it... I don't know why everything must touch each other
     // for transfers that need dst to support graphics
     VkCommandPool                       m_TransferCommandSpecialPool{};
 
-    using bitfield = intptr_t;  // bitfield size match ptr size
+    using bitfield = uintptr_t;  // bitfield size match ptr size
 
     bitfield isCreated : 1; // has this already been created?
 

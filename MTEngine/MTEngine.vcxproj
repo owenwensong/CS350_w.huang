@@ -60,8 +60,7 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="..\prop-pages\buildDirectories.props" />
-    <Import Project="..\prop-pages\includeVulkan.props" />
-    <Import Project="..\prop-pages\vklib32.props" />
+    <Import Project="..\prop-pages\vklibLocal.props" />
     <Import Project="..\prop-pages\includeGLM.props" />
     <Import Project="..\prop-pages\includeAssimp.props" />
     <Import Project="..\prop-pages\includeTinyddsloader.props" />
@@ -69,8 +68,7 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="..\prop-pages\buildDirectories.props" />
-    <Import Project="..\prop-pages\includeVulkan.props" />
-    <Import Project="..\prop-pages\vklib32.props" />
+    <Import Project="..\prop-pages\vklibLocal.props" />
     <Import Project="..\prop-pages\includeGLM.props" />
     <Import Project="..\prop-pages\includeAssimp.props" />
     <Import Project="..\prop-pages\includeTinyddsloader.props" />
@@ -78,8 +76,7 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="..\prop-pages\buildDirectories.props" />
-    <Import Project="..\prop-pages\includeVulkan.props" />
-    <Import Project="..\prop-pages\vklib64.props" />
+    <Import Project="..\prop-pages\vklibLocal.props" />
     <Import Project="..\prop-pages\includeGLM.props" />
     <Import Project="..\prop-pages\includeAssimp.props" />
     <Import Project="..\prop-pages\includeTinyddsloader.props" />
@@ -87,8 +84,7 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
     <Import Project="..\prop-pages\buildDirectories.props" />
-    <Import Project="..\prop-pages\includeVulkan.props" />
-    <Import Project="..\prop-pages\vklib64.props" />
+    <Import Project="..\prop-pages\vklibLocal.props" />
     <Import Project="..\prop-pages\includeGLM.props" />
     <Import Project="..\prop-pages\includeAssimp.props" />
     <Import Project="..\prop-pages\includeTinyddsloader.props" />
@@ -112,7 +108,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -127,7 +124,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -142,7 +140,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -157,7 +156,8 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>

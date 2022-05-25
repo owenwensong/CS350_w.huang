@@ -27,9 +27,9 @@ struct vulkanPipeline
   {
     return VkPushConstantRange
     {
-      .stageFlags{ targetStage },
-      .offset{ 0 }, // set later, assume tightly packed between shader stages.
-      .size{ totalTypesSize<pushConstantTypes...>() }
+      targetStage,
+      0, // set later, assume tightly packed between shader stages.
+      totalTypesSize<pushConstantTypes...>()
     };
   }
 
@@ -46,10 +46,9 @@ struct vulkanPipeline
   {
     return std::vector<uniformInfo>
     { uniformInfo{
-      .m_TypeBindingID  { firstBindingID++ }, // keep incrementing bind ID
-      .m_TypeSize       { sizeof(Ts) },       // variadic unpacked size
-      .m_TypeAlign      { alignof(Ts) },      // variadic unpacked alignment
-      .m_DescriptorType
+      firstBindingID++, // keep incrementing bind ID
+      sizeof(Ts),       // variadic unpacked size
+      alignof(Ts),      // variadic unpacked alignment
       {
         std::is_same_v<Ts, vulkanTexture> ?
         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER :

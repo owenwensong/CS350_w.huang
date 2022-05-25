@@ -47,8 +47,10 @@ const glm::vec3 originCamera::s_Up{ 0.0f, 1.0f, 0.0f };
 
 struct pointLight // aligned for use in uniform buffer
 {
+#pragma warning(disable : 4324)
   alignas(16) glm::vec3 m_Pos;
   alignas(16) glm::vec3 m_Col;
+#pragma warning(default : 4324)
 };
 
 struct objInfo  // fast for me, slow for the computer (keep it simple, no rotation)
@@ -159,7 +161,7 @@ namespace FinalSkull  // helper hard coded stuff
 
     for (size_t i{ 0 }, t{ E_NUM_TEXTURES }; i < t; ++i)
     {
-      if (false == pWH->createTexture(outTextures[i], vulkanTexture::Setup{ .m_Path{ texPaths[i] } }))
+      if (false == pWH->createTexture(outTextures[i], vulkanTexture::Setup{ { texPaths[i] } }))
       {
         return false;
       }
@@ -202,7 +204,7 @@ namespace FinalCar
 
     for (size_t i{ 0 }, t{ E_NUM_TEXTURES }; i < t; ++i)
     {
-      if (false == pWH->createTexture(outTextures[i], vulkanTexture::Setup{ .m_Path{ texPaths[i] } }))
+      if (false == pWH->createTexture(outTextures[i], vulkanTexture::Setup{ { texPaths[i] } }))
       {
         return false;
       }
@@ -273,7 +275,7 @@ int main()
     "F11: Enter fullscreen mode\n"
   );
 
-  if (std::unique_ptr<vulkanWindow> upVKWin{ pWH->createWindow(windowSetup{.m_ClearColorR{ 0.0f }, .m_ClearColorG{ 0.0f }, .m_ClearColorB{ 0.0f }, .m_Title{ L"CSD2150 Final Project | Owen Huang Wensong"sv } }) }; upVKWin && upVKWin->OK())
+  if (std::unique_ptr<vulkanWindow> upVKWin{ pWH->createWindow(windowSetup{ 1280, 720, false, true, false, 0.0f, 0.0f , 0.0f, 1.0f , L"CSD2150 Final Project | Owen Huang Wensong"sv }) }; upVKWin && upVKWin->OK())
   {
     windowsInput& win0Input{ upVKWin->m_windowsWindow.m_windowInputs };
 
@@ -299,38 +301,28 @@ int main()
     if (false == upVKWin->createPipelineInfo(skullPipeline,
       vulkanPipeline::setup // ***************************** SKULL PIPELINE ****
       {
-        .m_VertexBindingMode{ vulkanPipeline::E_VERTEX_BINDING_MODE::AOS_XYZ_UV_NML_TAN_F32 },
+        vulkanPipeline::E_VERTEX_BINDING_MODE::AOS_XYZ_UV_NML_TAN_F32,
         
-        .m_PathShaderVert{ "../Assets/Shaders/Vert.spv"sv },
-        .m_PathShaderFrag{ "../Assets/Shaders/fragBottomUpNormalsBC5.spv"sv },
+        "../Assets/Shaders/Vert.spv"sv,
+        "../Assets/Shaders/fragBottomUpNormalsBC5.spv"sv,
 
-        .m_UniformsVert
-        {
-          vulkanPipeline::createUniformInfo
-          <
-            //float,        // heightmap scale
-            //vulkanTexture // u_sRoughness (for heightmap data)
-          >()
-        },
-        .m_UniformsFrag
-        {
-          vulkanPipeline::createUniformInfo
-          <
-            float,        // u_AmbientStrength
-            glm::vec3,    // u_LocalCamPos
-            pointLight,   // u_LocalLightPos & u_LocalLightCol
-            vulkanTexture,// u_sColor
-            vulkanTexture,// u_sAmbient
-            vulkanTexture,// u_sNormal
-            vulkanTexture // u_sRoughness
-          >()
-        },
+        vulkanPipeline::createUniformInfo<>(),
+        vulkanPipeline::createUniformInfo
+        <
+          float,        // u_AmbientStrength
+          glm::vec3,    // u_LocalCamPos
+          pointLight,   // u_LocalLightPos & u_LocalLightCol
+          vulkanTexture,// u_sColor
+          vulkanTexture,// u_sAmbient
+          vulkanTexture,// u_sNormal
+          vulkanTexture // u_sRoughness
+        >(),
 
-        .m_pTexturesVert
+        //.m_pTexturesVert
         {
           //&SkullTextures[FinalSkull::E_ROUGHNESS]
         },
-        .m_pTexturesFrag
+        //.m_pTexturesFrag
         {
           &SkullTextures[FinalSkull::E_BASE_COLOR],
           &SkullTextures[FinalSkull::E_AMBIENT_OCCLUSION],
@@ -338,21 +330,21 @@ int main()
           &SkullTextures[FinalSkull::E_ROUGHNESS]
         },
 
-        .m_PushConstantRangeVert{ vulkanPipeline::createPushConstantInfo<glm::mat4>(VK_SHADER_STAGE_VERTEX_BIT) },
-        .m_PushConstantRangeFrag{ vulkanPipeline::createPushConstantInfo<float>(VK_SHADER_STAGE_FRAGMENT_BIT) },
+        vulkanPipeline::createPushConstantInfo<glm::mat4>(VK_SHADER_STAGE_VERTEX_BIT),
+        vulkanPipeline::createPushConstantInfo<float>(VK_SHADER_STAGE_FRAGMENT_BIT),
       }) || false == upVKWin->createPipelineInfo(carPipeline,
       vulkanPipeline::setup // ******************************* CAR PIPELINE ****
       {
-        .m_VertexBindingMode{ vulkanPipeline::E_VERTEX_BINDING_MODE::AOS_XYZ_UV_NML_TAN_F32 },
+        vulkanPipeline::E_VERTEX_BINDING_MODE::AOS_XYZ_UV_NML_TAN_F32,
 
-        .m_PathShaderVert{ "../Assets/Shaders/Vert.spv"sv },
-        .m_PathShaderFrag{ "../Assets/Shaders/fragTopDownNormalslR8G8B8A8.spv"sv },
+        "../Assets/Shaders/Vert.spv"sv,
+        "../Assets/Shaders/fragTopDownNormalslR8G8B8A8.spv"sv,
 
-        .m_UniformsVert
+        //.m_UniformsVert
         {
           vulkanPipeline::createUniformInfo<>()
         },
-        .m_UniformsFrag
+        //.m_UniformsFrag
         {
           vulkanPipeline::createUniformInfo
           <
@@ -366,8 +358,9 @@ int main()
           >()
         },
 
-      .m_pTexturesVert{ },
-      .m_pTexturesFrag
+      //.m_pTexturesVert
+      { },
+      //.m_pTexturesFrag
       {
         &CarTextures[FinalCar::E_BASE_COLOR],
         &CarTextures[FinalCar::E_AMBIENT_OCCLUSION],
@@ -375,8 +368,8 @@ int main()
         &CarTextures[FinalCar::E_ROUGHNESS]
       },
 
-      .m_PushConstantRangeVert{ vulkanPipeline::createPushConstantInfo<glm::mat4>(VK_SHADER_STAGE_VERTEX_BIT) },
-      .m_PushConstantRangeFrag{ vulkanPipeline::createPushConstantInfo<float>(VK_SHADER_STAGE_FRAGMENT_BIT) },
+      vulkanPipeline::createPushConstantInfo<glm::mat4>(VK_SHADER_STAGE_VERTEX_BIT),
+      vulkanPipeline::createPushConstantInfo<float>(VK_SHADER_STAGE_FRAGMENT_BIT),
       }))
     {
       printWarning("pipeline prep failed"sv, true);
@@ -397,14 +390,14 @@ int main()
 
       static originCamera cam
       {
-        .m_Dist       { 0.5f * (originCamera::s_DistLimits.x + originCamera::s_DistLimits.y) },
-        .m_Pos        { 0.0f, 0.0f, cam.m_Dist },
-        .m_Rot        { -glm::half_pi<float>(), 0.0f},
-        .m_LookMat
+        /*.m_Dist*/       { 0.5f * (originCamera::s_DistLimits.x + originCamera::s_DistLimits.y) },
+        /*.m_Pos*/        { 0.0f, 0.0f, cam.m_Dist },
+        /*.m_Rot*/        { -glm::half_pi<float>(), 0.0f},
+        /*.m_LookMat*/
         {
           glm::lookAt(glm::vec3{ 0.0f, 0.0f, cam.m_Dist }, cam.s_Tgt, cam.s_Up)
         },
-        .m_W2V
+        /*.m_W2V*/
         {
           glm::perspective(originCamera::s_CamFOV, AR, originCamera::s_Near, originCamera::s_Far)*
           cam.m_LookMat
@@ -483,8 +476,8 @@ int main()
           static float s_AmbientStrength{ 0.0625f };
           static pointLight s_Light
           {
-            .m_Pos{ cam.m_Pos },
-            .m_Col{ 1.0f, 1.0f, 1.0f }
+            /*.m_Pos*/{ cam.m_Pos },
+            /*.m_Col*/{ 1.0f, 1.0f, 1.0f }
           };
           static bool s_bLightFollow{ true };
           if (win0Input.isTriggered(VK_SPACE))s_bLightFollow = !s_bLightFollow;

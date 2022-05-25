@@ -126,13 +126,30 @@ bool vulkanModel::load3DUVModel(std::string_view const& fPath)
       aiVector3D& refTan{ refMesh.mTangents[j] };
       
 
-      vertices.emplace_back
-      (
-        decltype(VTX_3D_UV_NML_TAN::m_Pos){ refVtx.x, refVtx.y, refVtx.z },
-        decltype(VTX_3D_UV_NML_TAN::m_Tex){ refUV.x, refUV.y },
-        decltype(VTX_3D_UV_NML_TAN::m_Nml){ refNml.x, refNml.y, refNml.z },
-        decltype(VTX_3D_UV_NML_TAN::m_Tan){ refTan.x, refTan.y, refTan.z }
-      );
+      //vertices.emplace_back
+      //(
+      //  decltype(VTX_3D_UV_NML_TAN::m_Pos){ refVtx.x, refVtx.y, refVtx.z },
+      //  decltype(VTX_3D_UV_NML_TAN::m_Tex){ refUV.x, refUV.y },
+      //  decltype(VTX_3D_UV_NML_TAN::m_Nml){ refNml.x, refNml.y, refNml.z },
+      //  decltype(VTX_3D_UV_NML_TAN::m_Tan){ refTan.x, refTan.y, refTan.z }
+      //);
+      VTX_3D_UV_NML_TAN& currVertex{ vertices.emplace_back() };
+      {
+        currVertex.m_Pos.x = refVtx.x;
+        currVertex.m_Pos.y = refVtx.y;
+        currVertex.m_Pos.z = refVtx.z;
+
+        currVertex.m_Tex.x = refUV.x;
+        currVertex.m_Tex.y = refUV.y;
+
+        currVertex.m_Nml.x = refNml.x;
+        currVertex.m_Nml.y = refNml.y;
+        currVertex.m_Nml.z = refNml.z;
+
+        currVertex.m_Tan.x = refTan.x;
+        currVertex.m_Tan.y = refTan.y;
+        currVertex.m_Tan.z = refTan.z;
+      };
     }
 
     // Set up Indices
@@ -162,10 +179,10 @@ bool vulkanModel::load3DUVModel(std::string_view const& fPath)
   (
     m_Buffer_Vertex,
     {
-      .m_BufferUsage{ vulkanBuffer::s_BufferUsage_Vertex },
-      .m_MemPropFlag{ vulkanBuffer::s_MemPropFlag_Vertex },
-      .m_Count      { m_VertexCount },
-      .m_ElemSize   { sizeof(decltype(vertices)::value_type) }
+      { vulkanBuffer::s_BufferUsage_Vertex },
+      { vulkanBuffer::s_MemPropFlag_Vertex },
+      { m_VertexCount },
+      { sizeof(decltype(vertices)::value_type) }
     }
   ))
   {
@@ -192,10 +209,10 @@ bool vulkanModel::load3DUVModel(std::string_view const& fPath)
     (
       m_Buffer_Index,
       {
-        .m_BufferUsage{ vulkanBuffer::s_BufferUsage_Index },
-        .m_MemPropFlag{ vulkanBuffer::s_MemPropFlag_Index },
-        .m_Count      { m_IndexCount },
-        .m_ElemSize   { sizeof(decltype(indices)::value_type) }
+        { vulkanBuffer::s_BufferUsage_Index },
+        { vulkanBuffer::s_MemPropFlag_Index },
+        { m_IndexCount },
+        { sizeof(decltype(indices)::value_type) }
       }
     ))
     {

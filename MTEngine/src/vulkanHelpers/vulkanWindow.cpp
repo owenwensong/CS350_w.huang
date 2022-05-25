@@ -20,7 +20,7 @@
 
 VkSurfaceFormatKHR selectSurfaceFormat(VkPhysicalDevice VKDevice,
   VkSurfaceKHR VKSurface,
-  std::span<const VkFormat> RequestFormats,
+  const VkFormat* pRequestFormats, size_t cRequestFormats,
   VkColorSpaceKHR RequestColorSpace) noexcept
 {
   uint32_t Count{ 0 };
@@ -40,13 +40,14 @@ VkSurfaceFormatKHR selectSurfaceFormat(VkPhysicalDevice VKDevice,
   {
     if (SurfaceFormats[0].format == VK_FORMAT_UNDEFINED)
     {   // any format is available ???? that's a weird way of saying ALL
-      return VkSurfaceFormatKHR{ .format{ RequestFormats[0] }, .colorSpace{ RequestColorSpace } };
+      return VkSurfaceFormatKHR{ pRequestFormats[0], RequestColorSpace };
     }
   }
   else
   {
-    for (VkFormat const& R : RequestFormats)
+    for (size_t i{ 0 }; i < cRequestFormats; ++i)
     {
+      VkFormat const& R{ pRequestFormats[i] };
       for (VkSurfaceFormatKHR const& S : SurfaceFormats)
       {
         if (R == S.format && S.colorSpace == RequestColorSpace)return S;
@@ -59,12 +60,13 @@ VkSurfaceFormatKHR selectSurfaceFormat(VkPhysicalDevice VKDevice,
 }
 
 VkFormat SelectDepthFormat(VkPhysicalDevice VKDevice,
-  std::span<const VkFormat> RequestFormats,
+  const VkFormat* pRequestFormats, size_t cRequestFormats,
   VkImageTiling Tiling,
   VkFormatFeatureFlags Features) //noexcept ??????
 {
-  for (VkFormat Format : RequestFormats)
+  for (size_t i{ 0 }; i < cRequestFormats; ++i)
   {
+    VkFormat Format{ pRequestFormats[i] };
     VkFormatProperties Props{};
     vkGetPhysicalDeviceFormatProperties(VKDevice, Format, &Props);
     if (VK_IMAGE_TILING_LINEAR == Tiling && (Props.linearTilingFeatures & Features) == Features)
@@ -78,12 +80,12 @@ VkFormat SelectDepthFormat(VkPhysicalDevice VKDevice,
   }
   // Unable to locate a good Z buffer format... ??????????
   assert(false);
-  return RequestFormats[0];
+  return pRequestFormats[0];
 }
 
 VkPresentModeKHR SelectPresentMode(VkPhysicalDevice VKDevice,
   VkSurfaceKHR VKSurface,
-  std::span<const VkPresentModeKHR> request_modes)
+  const VkPresentModeKHR* pRequest_modes, size_t cRequest_modes)
 {
   uint32_t Count{ 0 };
   if (VkResult tmpRes{ vkGetPhysicalDeviceSurfacePresentModesKHR(VKDevice, VKSurface, &Count, nullptr) }; tmpRes != VK_SUCCESS)
@@ -97,8 +99,9 @@ VkPresentModeKHR SelectPresentMode(VkPhysicalDevice VKDevice,
     printVKWarning(tmpRes, "Failed to get Physical Device Surface Present Modes, Falling back to VK_PRESENT_MODE_FIFO_KHR"sv);
     return VK_PRESENT_MODE_FIFO_KHR;
   }
-  for (VkPresentModeKHR const& R : request_modes)
+  for (size_t i{ 0 }; i < cRequest_modes; ++i)
   {
+    VkPresentModeKHR const& R{ pRequest_modes[i] };
     for (VkPresentModeKHR const& P : PresentModes)
     {
       if (R == P)return P;
@@ -190,12 +193,12 @@ bool vulkanWindow::Initialize(std::shared_ptr<vulkanDevice>& Device,
   m_Device = Device;
   m_bfClearOnRender = Setup.m_bClearOnRender ? 1 : 0;
   m_VKClearValue[0] = VkClearValue
-  { .color{.float32{
+  {
       Setup.m_ClearColorR,
       Setup.m_ClearColorG,
       Setup.m_ClearColorB,
       Setup.m_ClearColorA
-  } } };
+  };
 
   std::shared_ptr<vulkanInstance>& Instance{ m_Device->getVKInst() };
 
@@ -231,13 +234,13 @@ bool vulkanWindow::Initialize(std::shared_ptr<vulkanDevice>& Device,
       return false;
     }
 
-    VkWin32SurfaceCreateInfoKHR SurfaceCreateInfo
+    VkWin32SurfaceCreateInfoKHR SurfaceCreateInfo{};
     {
-        .sType      { VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR },
-        .pNext      { nullptr },
-        .flags      { 0 },
-        .hinstance  { GetModuleHandle(NULL) },
-        .hwnd       { m_windowsWindow.getSystemWindowHandle() }
+      SurfaceCreateInfo.sType = { VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
+      SurfaceCreateInfo.pNext = { nullptr };
+      SurfaceCreateInfo.flags = { 0 };
+      SurfaceCreateInfo.hinstance = { GetModuleHandle(NULL) };
+      SurfaceCreateInfo.hwnd = { m_windowsWindow.getSystemWindowHandle() };
     };
     if (VkResult tmpRes{ pFNVKCreateWin32Surface(Instance->m_VkHandle, &SurfaceCreateInfo, Instance->m_pVKAllocator, &m_VKSurface) }; tmpRes != VK_SUCCESS)
     {
@@ -279,7 +282,7 @@ bool vulkanWindow::Initialize(std::shared_ptr<vulkanDevice>& Device,
   (
     m_Device->m_VKPhysicalDevice,
     m_VKSurface,
-    requestSurfaceImageFormat,
+    requestSurfaceImageFormat.data(), requestSurfaceImageFormat.size(),
     requestSurfaceColorSpace
   );
 
@@ -300,7 +303,7 @@ bool vulkanWindow::Initialize(std::shared_ptr<vulkanDevice>& Device,
   m_VKDepthFormat = SelectDepthFormat
   (
     m_Device->m_VKPhysicalDevice,
-    requestDepthFormats,
+    requestDepthFormats.data(), requestDepthFormats.size(),
     VK_IMAGE_TILING_OPTIMAL,
     VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT
   );
@@ -317,7 +320,7 @@ bool vulkanWindow::Initialize(std::shared_ptr<vulkanDevice>& Device,
   (
     m_Device->m_VKPhysicalDevice,
     m_VKSurface,
-    PresentModes
+    PresentModes.data(), PresentModes.size()
   );
 
   // ?????????????????????????????????????????????????????????????????????
@@ -405,28 +408,28 @@ bool vulkanWindow::CreateWindowSwapChain() noexcept
 
   // Create the Swapchain
   {
-    VkSwapchainCreateInfoKHR SwapChainInfo
+    VkSwapchainCreateInfoKHR SwapChainInfo{};
     {
-      .sType              { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR },
-      .pNext              { nullptr },
-      .flags              { 0 },
-      .surface            { m_VKSurface },
-      .minImageCount      { m_ImageCount },
-      .imageFormat        { m_VKSurfaceFormat.format },
-      .imageColorSpace    { m_VKSurfaceFormat.colorSpace },
-      .imageExtent
+      SwapChainInfo.sType = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
+      SwapChainInfo.pNext = { nullptr };
+      SwapChainInfo.flags = { 0 };
+      SwapChainInfo.surface = { m_VKSurface };
+      SwapChainInfo.minImageCount = { m_ImageCount };
+      SwapChainInfo.imageFormat = { m_VKSurfaceFormat.format };
+      SwapChainInfo.imageColorSpace = { m_VKSurfaceFormat.colorSpace };
+      SwapChainInfo.imageExtent =
       {
-        .width  { static_cast<decltype(VkExtent2D::width)>(m_windowsWindow.getWidth()) },
-        .height { static_cast<decltype(VkExtent2D::height)>(m_windowsWindow.getHeight()) }
-      },
-      .imageArrayLayers   { 1 },
-      .imageUsage         { VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT },
-      .imageSharingMode   { VK_SHARING_MODE_EXCLUSIVE },
-      .preTransform       { VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR },
-      .compositeAlpha     { VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR },
-      .presentMode        { m_VKPresentMode },
-      .clipped            { VK_TRUE },
-      .oldSwapchain       { VKOldSwapChain }  // reused here :^D
+        { static_cast<decltype(VkExtent2D::width)>(m_windowsWindow.getWidth()) },
+        { static_cast<decltype(VkExtent2D::height)>(m_windowsWindow.getHeight()) }
+      };
+      SwapChainInfo.imageArrayLayers = { 1 };
+      SwapChainInfo.imageUsage = { VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT };
+      SwapChainInfo.imageSharingMode = { VK_SHARING_MODE_EXCLUSIVE };
+      SwapChainInfo.preTransform = { VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR };
+      SwapChainInfo.compositeAlpha = { VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR };
+      SwapChainInfo.presentMode = { m_VKPresentMode };
+      SwapChainInfo.clipped = { VK_TRUE };
+      SwapChainInfo.oldSwapchain = { VKOldSwapChain };  // reused here :^D
     };
 
     VkSurfaceCapabilitiesKHR SurfaceCapabilities{};
@@ -495,26 +498,26 @@ bool vulkanWindow::CreateWindowSwapChain() noexcept
 
   // Create the Image Views
   {
-    VkImageViewCreateInfo CreateInfo
+    VkImageViewCreateInfo CreateInfo{};
     {
-      .sType      { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO },
-      .viewType   { VK_IMAGE_VIEW_TYPE_2D },
-      .format     { m_VKSurfaceFormat.format },
-      .components
+      CreateInfo.sType = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+      CreateInfo.viewType = { VK_IMAGE_VIEW_TYPE_2D };
+      CreateInfo.format = { m_VKSurfaceFormat.format };
+      CreateInfo.components =
       {
-        .r{ VK_COMPONENT_SWIZZLE_R },
-        .g{ VK_COMPONENT_SWIZZLE_G },
-        .b{ VK_COMPONENT_SWIZZLE_B },
-        .a{ VK_COMPONENT_SWIZZLE_A }
-      },
-      .subresourceRange
+        { VK_COMPONENT_SWIZZLE_R },
+        { VK_COMPONENT_SWIZZLE_G },
+        { VK_COMPONENT_SWIZZLE_B },
+        { VK_COMPONENT_SWIZZLE_A }
+      };
+      CreateInfo.subresourceRange =
       {
-        .aspectMask     { VK_IMAGE_ASPECT_COLOR_BIT },
-        .baseMipLevel   { 0 },
-        .levelCount     { 1 },
-        .baseArrayLayer { 0 },
-        .layerCount     { 1 }
-      }
+        { VK_IMAGE_ASPECT_COLOR_BIT },
+        { 0 },
+        { 1 },
+        { 0 },
+        { 1 }
+      };
     };
 
     for (uint32_t i{ 0 }; i < m_ImageCount; ++i)
@@ -533,16 +536,16 @@ bool vulkanWindow::CreateWindowSwapChain() noexcept
 
   // Create Framebuffer
   {
-    std::array<VkImageView, 2> Attachment;// ???
-    VkFramebufferCreateInfo CreateInfo
+    std::array<VkImageView, 2> Attachment{};// ???
+    VkFramebufferCreateInfo CreateInfo{};
     {
-      .sType          { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO },
-      .renderPass     { m_VKRenderPass },
-      .attachmentCount{ static_cast<uint32_t>(Attachment.size()) },
-      .pAttachments   { Attachment.data() },
-      .width          { static_cast<uint32_t>(m_windowsWindow.getWidth()) },
-      .height         { static_cast<uint32_t>(m_windowsWindow.getHeight()) },
-      .layers         { 1 }
+      CreateInfo.sType = { VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO };
+      CreateInfo.renderPass = { m_VKRenderPass };
+      CreateInfo.attachmentCount = { static_cast<uint32_t>(Attachment.size()) };
+      CreateInfo.pAttachments = { Attachment.data() };
+      CreateInfo.width = { static_cast<uint32_t>(m_windowsWindow.getWidth()) };
+      CreateInfo.height = { static_cast<uint32_t>(m_windowsWindow.getHeight()) };
+      CreateInfo.layers = { 1 };
     };
 
     for (uint32_t i{ 0 }; i < m_ImageCount; ++i)
@@ -563,25 +566,25 @@ bool vulkanWindow::CreateWindowSwapChain() noexcept
 
 bool vulkanWindow::CreateDepthResources(VkExtent2D Extents) noexcept
 {
-  VkImageCreateInfo ImageInfo
+  VkImageCreateInfo ImageInfo{};
   {
-    .sType          { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO },
-    .flags          { 0 },
-    .imageType      { VK_IMAGE_TYPE_2D },
-    .format         { m_VKDepthFormat },
-    .extent
+    ImageInfo.sType = { VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
+    ImageInfo.flags = { 0 };
+    ImageInfo.imageType = { VK_IMAGE_TYPE_2D };
+    ImageInfo.format = { m_VKDepthFormat };
+    ImageInfo.extent =
     {
-      .width  { Extents.width },
-      .height { Extents.height },
-      .depth  { 1 }
-    },
-    .mipLevels      { 1 },
-    .arrayLayers    { 1 },
-    .samples        { VK_SAMPLE_COUNT_1_BIT },
-    .tiling         { VK_IMAGE_TILING_OPTIMAL },
-    .usage          { VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT },
-    .sharingMode    { VK_SHARING_MODE_EXCLUSIVE },
-    .initialLayout  { VK_IMAGE_LAYOUT_UNDEFINED } // ???
+      { Extents.width },
+      { Extents.height },
+      { 1 }
+    };
+    ImageInfo.mipLevels = { 1 };
+    ImageInfo.arrayLayers = { 1 };
+    ImageInfo.samples = { VK_SAMPLE_COUNT_1_BIT };
+    ImageInfo.tiling = { VK_IMAGE_TILING_OPTIMAL };
+    ImageInfo.usage = { VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT };
+    ImageInfo.sharingMode = { VK_SHARING_MODE_EXCLUSIVE };
+    ImageInfo.initialLayout = { VK_IMAGE_LAYOUT_UNDEFINED }; // ???
   };
 
   VkAllocationCallbacks* pAllocator{ m_Device->m_pVKInst->m_pVKAllocator };
@@ -601,11 +604,11 @@ bool vulkanWindow::CreateDepthResources(VkExtent2D Extents) noexcept
     printWarning("Failed to find the right type of memory to allocate the zbuffer"sv, true);
     return false;
   }
-  VkMemoryAllocateInfo AllocInfo
+  VkMemoryAllocateInfo AllocInfo{};
   {
-    .sType          { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO },
-    .allocationSize { memRequirements.size },
-    .memoryTypeIndex{ MemoryIndex }
+    AllocInfo.sType = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+    AllocInfo.allocationSize = { memRequirements.size };
+    AllocInfo.memoryTypeIndex = { MemoryIndex };
   };
 
   if (VkResult tmpRes{ vkAllocateMemory(m_Device->m_VKDevice, &AllocInfo, pAllocator, &m_VKDepthbufferMemory) }; tmpRes != VK_SUCCESS)
@@ -620,20 +623,20 @@ bool vulkanWindow::CreateDepthResources(VkExtent2D Extents) noexcept
     return false;
   }
 
-  VkImageViewCreateInfo ViewInfo
+  VkImageViewCreateInfo ViewInfo{};
   {
-    .sType      { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO },
-    .image      { m_VKDepthbuffer },
-    .viewType   { VK_IMAGE_VIEW_TYPE_2D },
-    .format     { m_VKDepthFormat },
-    .subresourceRange
+    ViewInfo.sType      = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO },
+    ViewInfo.image      = { m_VKDepthbuffer },
+    ViewInfo.viewType   = { VK_IMAGE_VIEW_TYPE_2D },
+    ViewInfo.format     = { m_VKDepthFormat },
+    ViewInfo.subresourceRange =
     {
-      .aspectMask     { VK_IMAGE_ASPECT_DEPTH_BIT },
-      .baseMipLevel   { 0 },
-      .levelCount     { 1 },
-      .baseArrayLayer { 0 },
-      .layerCount     { 1 }
-    }
+      { VK_IMAGE_ASPECT_DEPTH_BIT },
+      { 0 },
+      { 1 },
+      { 0 },
+      { 1 }
+    };
   };
 
   if (VkResult tmpRes{ vkCreateImageView(m_Device->m_VKDevice, &ViewInfo, pAllocator, &m_VKDepthbufferView) }; tmpRes != VK_SUCCESS)
@@ -652,8 +655,8 @@ bool vulkanWindow::CreateRenderPass(VkSurfaceFormatKHR& VKColorSurfaceFormat, Vk
   {
     VkAttachmentReference
     {
-      .attachment { 0 },
-      .layout     { VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL }
+      { 0 },
+      { VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL }
     }
   };
 
@@ -661,72 +664,72 @@ bool vulkanWindow::CreateRenderPass(VkSurfaceFormatKHR& VKColorSurfaceFormat, Vk
   {
     VkAttachmentReference
     {
-      .attachment { 1 },
-      .layout     { VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL }
+      { 1 },
+      { VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL }
     }
   };
 
-  std::array SubpassDesc
+  std::array<VkSubpassDescription, 1> SubpassDesc{};
   {
-    VkSubpassDescription
-    {
-      .pipelineBindPoint      { VK_PIPELINE_BIND_POINT_GRAPHICS },
-      .colorAttachmentCount   { static_cast<uint32_t>(ColorAttachmentRef.size()) },
-      .pColorAttachments      { ColorAttachmentRef.data() },
-      .pDepthStencilAttachment{ DepthAttachmentRef.data() }
-    }
+    //VkSubpassDescription
+    //{
+      SubpassDesc[0].pipelineBindPoint = { VK_PIPELINE_BIND_POINT_GRAPHICS },
+      SubpassDesc[0].colorAttachmentCount = { static_cast<uint32_t>(ColorAttachmentRef.size()) },
+      SubpassDesc[0].pColorAttachments = { ColorAttachmentRef.data() },
+      SubpassDesc[0].pDepthStencilAttachment = { DepthAttachmentRef.data() };
+    //}
   };
 
-  std::array SubpassDependancy
+  std::array<VkSubpassDependency, 1> SubpassDependancy{};
   {
-    VkSubpassDependency
-    {
-      .srcSubpass     { VK_SUBPASS_EXTERNAL },
-      .dstSubpass     { 0 },   // VK_SUBPASS_CONTENTS_INLINE???
-      .srcStageMask   { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT },
-      .dstStageMask   { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT },
-      .srcAccessMask  { 0 },
-      .dstAccessMask  { VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT }
-    }
+    //VkSubpassDependency
+    //{
+      SubpassDependancy[0].srcSubpass    = { VK_SUBPASS_EXTERNAL },
+      SubpassDependancy[0].dstSubpass    = { 0 },   // VK_SUBPASS_CONTENTS_INLINE???
+      SubpassDependancy[0].srcStageMask  = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT },
+      SubpassDependancy[0].dstStageMask  = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT },
+      SubpassDependancy[0].srcAccessMask = { 0 },
+      SubpassDependancy[0].dstAccessMask = { VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT };
+    //}
   };
 
-  std::array AttachmentDesc
+  std::array<VkAttachmentDescription, 2> AttachmentDesc{};
   {
     // Color Attachment
-    VkAttachmentDescription
-    {
-      .format         { VKColorSurfaceFormat.format },
-      .samples        { VK_SAMPLE_COUNT_1_BIT },
-      .loadOp         { m_bfClearOnRender ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_DONT_CARE },
-      .storeOp        { VK_ATTACHMENT_STORE_OP_STORE },
-      .stencilLoadOp  { VK_ATTACHMENT_LOAD_OP_DONT_CARE },
-      .stencilStoreOp { VK_ATTACHMENT_STORE_OP_DONT_CARE },
-      .initialLayout  { VK_IMAGE_LAYOUT_UNDEFINED },    // ???
-      .finalLayout    { VK_IMAGE_LAYOUT_PRESENT_SRC_KHR }
-    },
+    //VkAttachmentDescription
+    //{
+      AttachmentDesc[0].format         = { VKColorSurfaceFormat.format },
+      AttachmentDesc[0].samples        = { VK_SAMPLE_COUNT_1_BIT },
+      AttachmentDesc[0].loadOp         = { m_bfClearOnRender ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_DONT_CARE },
+      AttachmentDesc[0].storeOp        = { VK_ATTACHMENT_STORE_OP_STORE },
+      AttachmentDesc[0].stencilLoadOp  = { VK_ATTACHMENT_LOAD_OP_DONT_CARE },
+      AttachmentDesc[0].stencilStoreOp = { VK_ATTACHMENT_STORE_OP_DONT_CARE },
+      AttachmentDesc[0].initialLayout  = { VK_IMAGE_LAYOUT_UNDEFINED },    // ???
+      AttachmentDesc[0].finalLayout    = { VK_IMAGE_LAYOUT_PRESENT_SRC_KHR };
+    //},
     // Depth Attachment
-    VkAttachmentDescription
-    {
-      .format         { VKDepthSurfaceFormat },
-      .samples        { VK_SAMPLE_COUNT_1_BIT },
-      .loadOp         { VK_ATTACHMENT_LOAD_OP_CLEAR },
-      .storeOp        { VK_ATTACHMENT_STORE_OP_DONT_CARE },
-      .stencilLoadOp  { VK_ATTACHMENT_LOAD_OP_DONT_CARE },
-      .stencilStoreOp { VK_ATTACHMENT_STORE_OP_DONT_CARE },
-      .initialLayout  { VK_IMAGE_LAYOUT_UNDEFINED },    // ???
-      .finalLayout    { VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL }
-    }
+    //VkAttachmentDescription
+    //{
+      AttachmentDesc[1].format         = { VKDepthSurfaceFormat },
+      AttachmentDesc[1].samples        = { VK_SAMPLE_COUNT_1_BIT },
+      AttachmentDesc[1].loadOp         = { VK_ATTACHMENT_LOAD_OP_CLEAR },
+      AttachmentDesc[1].storeOp        = { VK_ATTACHMENT_STORE_OP_DONT_CARE },
+      AttachmentDesc[1].stencilLoadOp  = { VK_ATTACHMENT_LOAD_OP_DONT_CARE },
+      AttachmentDesc[1].stencilStoreOp = { VK_ATTACHMENT_STORE_OP_DONT_CARE },
+      AttachmentDesc[1].initialLayout  = { VK_IMAGE_LAYOUT_UNDEFINED },    // ???
+      AttachmentDesc[1].finalLayout    = { VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL };
+    //}
   };
 
-  VkRenderPassCreateInfo CreateInfo
+  VkRenderPassCreateInfo CreateInfo{};
   {
-    .sType          { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO },
-    .attachmentCount{ static_cast<uint32_t>(AttachmentDesc.size()) },
-    .pAttachments   { AttachmentDesc.data() },
-    .subpassCount   { static_cast<uint32_t>(SubpassDesc.size()) },
-    .pSubpasses     { SubpassDesc.data() },
-    .dependencyCount{ static_cast<uint32_t>(SubpassDependancy.size()) },
-    .pDependencies  { SubpassDependancy.data() }
+    CreateInfo.sType           = { VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO },
+    CreateInfo.attachmentCount = { static_cast<uint32_t>(AttachmentDesc.size()) },
+    CreateInfo.pAttachments    = { AttachmentDesc.data() },
+    CreateInfo.subpassCount    = { static_cast<uint32_t>(SubpassDesc.size()) },
+    CreateInfo.pSubpasses      = { SubpassDesc.data() },
+    CreateInfo.dependencyCount = { static_cast<uint32_t>(SubpassDependancy.size()) },
+    CreateInfo.pDependencies   = { SubpassDependancy.data() };
   };
 
   if (VkResult tmpRes{ vkCreateRenderPass(m_Device->m_VKDevice, &CreateInfo, m_Device->m_pVKInst->m_pVKAllocator, &m_VKRenderPass) }; tmpRes != VK_SUCCESS)
@@ -748,11 +751,11 @@ bool vulkanWindow::CreateWindowCommandBuffers() noexcept
     auto& Frame{ m_Frames[i] };
 
     {   // COMMAND POOLS
-      VkCommandPoolCreateInfo CreateInfo
+      VkCommandPoolCreateInfo CreateInfo{};
       {
-        .sType{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO },
-        .flags{ VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT },
-        .queueFamilyIndex{ m_Device->m_MainQueueIndex }
+        CreateInfo.sType = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO },
+        CreateInfo.flags = { VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT },
+        CreateInfo.queueFamilyIndex = { m_Device->m_MainQueueIndex };
       };
       if (VkResult tmpRes{ vkCreateCommandPool(m_Device->m_VKDevice, &CreateInfo, pAllocator, &Frame.m_VKCommandPool) }; tmpRes != VK_SUCCESS)
       {
@@ -762,12 +765,12 @@ bool vulkanWindow::CreateWindowCommandBuffers() noexcept
     }
 
     {   // COMMAND BUFFERS
-      VkCommandBufferAllocateInfo CreateInfo
+      VkCommandBufferAllocateInfo CreateInfo{};
       {
-        .sType      { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO },
-        .commandPool{ Frame.m_VKCommandPool },
-        .level      { VK_COMMAND_BUFFER_LEVEL_PRIMARY },
-        .commandBufferCount{ 1 }
+        CreateInfo.sType       = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO },
+        CreateInfo.commandPool = { Frame.m_VKCommandPool },
+        CreateInfo.level       = { VK_COMMAND_BUFFER_LEVEL_PRIMARY },
+        CreateInfo.commandBufferCount = { 1 };
       };
       if (VkResult tmpRes{ vkAllocateCommandBuffers(m_Device->m_VKDevice, &CreateInfo, &Frame.m_VKCommandBuffer) }; tmpRes != VK_SUCCESS)
       {
@@ -777,10 +780,10 @@ bool vulkanWindow::CreateWindowCommandBuffers() noexcept
     }
 
     {   // FENCES
-      VkFenceCreateInfo CreateInfo
+      VkFenceCreateInfo CreateInfo{};
       {
-        .sType{ VK_STRUCTURE_TYPE_FENCE_CREATE_INFO },
-        .flags{ VK_FENCE_CREATE_SIGNALED_BIT }
+        CreateInfo.sType = { VK_STRUCTURE_TYPE_FENCE_CREATE_INFO },
+        CreateInfo.flags = { VK_FENCE_CREATE_SIGNALED_BIT };
       };
       if (VkResult tmpRes{ vkCreateFence(m_Device->m_VKDevice, &CreateInfo, pAllocator, &Frame.m_VKFence) }; tmpRes != VK_SUCCESS)
       {
@@ -791,9 +794,9 @@ bool vulkanWindow::CreateWindowCommandBuffers() noexcept
 
     {   // SEMAPHORES
       auto& FrameSemaphores{ m_FrameSemaphores[i] };
-      VkSemaphoreCreateInfo CreateInfo
+      VkSemaphoreCreateInfo CreateInfo{};
       {
-        .sType{ VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO }
+        CreateInfo.sType = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
       };
       if (VkResult tmpRes{ vkCreateSemaphore(m_Device->m_VKDevice, &CreateInfo, pAllocator, &FrameSemaphores.m_VKImageAcquiredSemaphore) }; tmpRes != VK_SUCCESS)
       {
@@ -822,18 +825,21 @@ bool vulkanWindow::CreateUniformDescriptorSetLayouts(vulkanPipeline& outPipeline
   {
     uniformLayoutBindings.emplace_back
     (
-      x.m_TypeBindingID,          // binding
-      x.m_DescriptorType,         // descriptorType
-      1,                          // descriptorCount
-      VK_SHADER_STAGE_VERTEX_BIT, // stageFlags
-      nullptr                     // pImmutableSamplers
+      VkDescriptorSetLayoutBinding
+      {
+        x.m_TypeBindingID,          // binding
+        x.m_DescriptorType,         // descriptorType
+        1,                          // descriptorCount
+        VK_SHADER_STAGE_VERTEX_BIT, // stageFlags
+        nullptr                     // pImmutableSamplers
+      }
     );
   }
-  VkDescriptorSetLayoutCreateInfo layoutCreateInfo
+  VkDescriptorSetLayoutCreateInfo layoutCreateInfo{};
   {
-    .sType{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO },
-    .bindingCount { static_cast<uint32_t>(uniformLayoutBindings.size()) },
-    .pBindings    { uniformLayoutBindings.data() }
+    layoutCreateInfo.sType = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO },
+    layoutCreateInfo.bindingCount = { static_cast<uint32_t>(uniformLayoutBindings.size()) },
+    layoutCreateInfo.pBindings    = { uniformLayoutBindings.data() };
   };
   if (VkResult tmpRes{ vkCreateDescriptorSetLayout(m_Device->m_VKDevice, &layoutCreateInfo, m_Device->m_pVKInst->m_pVKAllocator, &outPipeline.m_DescriptorSetLayouts[0])}; tmpRes != VK_SUCCESS)
   {
@@ -848,11 +854,14 @@ bool vulkanWindow::CreateUniformDescriptorSetLayouts(vulkanPipeline& outPipeline
   {
     uniformLayoutBindings.emplace_back
     (
-      x.m_TypeBindingID,            // binding
-      x.m_DescriptorType,           // descriptorType
-      1,                            // descriptorCount
-      VK_SHADER_STAGE_FRAGMENT_BIT, // stageFlags
-      nullptr                       // pImmutableSamplers
+      VkDescriptorSetLayoutBinding
+      {
+        x.m_TypeBindingID,            // binding
+        x.m_DescriptorType,           // descriptorType
+        1,                            // descriptorCount
+        VK_SHADER_STAGE_FRAGMENT_BIT, // stageFlags
+        nullptr                       // pImmutableSamplers
+      }
     );
   }
   layoutCreateInfo.bindingCount = static_cast<uint32_t>(uniformLayoutBindings.size());
@@ -887,12 +896,12 @@ bool vulkanWindow::CreateUniformBuffers(vulkanPipeline& outPipeline, vulkanPipel
       {
         continue;
       }
-      vulkanBuffer::Setup BufferSetup
+      vulkanBuffer::Setup BufferSetup;
       {
-        .m_BufferUsage{ vulkanBuffer::s_BufferUsage_Uniform },
-        .m_MemPropFlag{ vulkanBuffer::s_MemPropFlag_Uniform },
-        .m_Count      { 1 },
-        .m_ElemSize   { refHelper[i][0][j].m_TypeSize }
+        BufferSetup.m_BufferUsage = { vulkanBuffer::s_BufferUsage_Uniform },
+        BufferSetup.m_MemPropFlag = { vulkanBuffer::s_MemPropFlag_Uniform },
+        BufferSetup.m_Count       = { 1 },
+        BufferSetup.m_ElemSize    = { refHelper[i][0][j].m_TypeSize };
       };
       for (size_t l{ 0 }, m{ m_ImageCount }; l < m; ++l)// for every frame
       {
@@ -925,12 +934,12 @@ bool vulkanWindow::CreateUniformDescriptorSets(vulkanPipeline& outPipeline, vulk
 
   outPipeline.m_DescriptorSets.resize(m_ImageCount);
   std::scoped_lock lock{ m_Device->m_LockedVKDescriptorPool };
-  VkDescriptorSetAllocateInfo allocInfo
+  VkDescriptorSetAllocateInfo allocInfo{};
   {
-    .sType{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO },
-    .descriptorPool     { m_Device->m_LockedVKDescriptorPool.get() },
-    .descriptorSetCount { static_cast<uint32_t>(outPipeline.m_DescriptorSetLayouts.size()) },
-    .pSetLayouts        { outPipeline.m_DescriptorSetLayouts.data()}
+    allocInfo.sType = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO },
+    allocInfo.descriptorPool     = { m_Device->m_LockedVKDescriptorPool.get() },
+    allocInfo.descriptorSetCount = { static_cast<uint32_t>(outPipeline.m_DescriptorSetLayouts.size()) },
+    allocInfo.pSetLayouts        = { outPipeline.m_DescriptorSetLayouts.data()};
   };
   for (size_t l{ 0 }, m{ m_ImageCount }; l < m; ++l)
   {
@@ -964,17 +973,17 @@ bool vulkanWindow::CreateUniformDescriptorSets(vulkanPipeline& outPipeline, vulk
         {
           bufferInfos.emplace_back(VkDescriptorBufferInfo
           {
-            .buffer { outPipeline.m_DescriptorBuffers[i][bufferIndex].m_Buffer },
-            .offset { 0 },
-            .range  { refHelper[i][0][j].m_TypeSize }
+            outPipeline.m_DescriptorBuffers[i][bufferIndex].m_Buffer,
+            0,
+            refHelper[i][0][j].m_TypeSize
           });
         }
         else if (vulkanTexture* pTex{ pTexures[samplerID++] }; pTex != nullptr)
         {
           bufferInfos.emplace_back(VkDescriptorImageInfo{
-            .sampler    { pTex->m_Sampler },
-            .imageView  { pTex->m_View },
-            .imageLayout{ VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }
+            pTex->m_Sampler,
+            pTex->m_View,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
           });
         }
         else
@@ -985,15 +994,16 @@ bool vulkanWindow::CreateUniformDescriptorSets(vulkanPipeline& outPipeline, vulk
         
         descriptorWrites.emplace_back(VkWriteDescriptorSet
         {
-          .sType{ VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET },
-          .dstSet           { DSet },
-          .dstBinding       { refHelper[i][0][j].m_TypeBindingID },
-          .dstArrayElement  { 0 },
-          .descriptorCount  { 1 },
-          .descriptorType   { refHelper[i][0][j].m_DescriptorType },
-          .pImageInfo       { isSampler ? &std::get<1>(bufferInfos.back()) : VK_NULL_HANDLE },
-          .pBufferInfo      { isSampler ? VK_NULL_HANDLE : &std::get<0>(bufferInfos.back()) },
-          .pTexelBufferView { VK_NULL_HANDLE }
+          VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+          nullptr,
+          DSet,
+          refHelper[i][0][j].m_TypeBindingID,
+          0,
+          1,
+          refHelper[i][0][j].m_DescriptorType,
+          isSampler ? &std::get<1>(bufferInfos.back()) : VK_NULL_HANDLE,
+          isSampler ? VK_NULL_HANDLE : &std::get<0>(bufferInfos.back()),
+          VK_NULL_HANDLE
         });
       }
 
@@ -1118,10 +1128,10 @@ VkCommandBuffer vulkanWindow::FrameBegin()
       assert(false);
     }
 
-    VkCommandBufferBeginInfo CommandBufferBeginInfo
+    VkCommandBufferBeginInfo CommandBufferBeginInfo{};
     {
-      .sType{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO },
-      .flags{ VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT }
+      CommandBufferBeginInfo.sType = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO },
+      CommandBufferBeginInfo.flags = { VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT };
     };
 
     if (VkResult tmpRes{ vkBeginCommandBuffer(Frame.m_VKCommandBuffer, &CommandBufferBeginInfo) }; tmpRes != VK_SUCCESS)
@@ -1132,21 +1142,25 @@ VkCommandBuffer vulkanWindow::FrameBegin()
   }
 
   // setup the renderpass
-  VkRenderPassBeginInfo RenderPassBeginInfo
+  VkRenderPassBeginInfo RenderPassBeginInfo{};
   {
-    .sType          { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO },
-    .renderPass     { m_VKRenderPass },
-    .framebuffer    { Frame.m_VKFramebuffer },
-    .renderArea
+    RenderPassBeginInfo.sType       = { VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO },
+    RenderPassBeginInfo.renderPass  = { m_VKRenderPass },
+    RenderPassBeginInfo.framebuffer = { Frame.m_VKFramebuffer },
+    RenderPassBeginInfo.renderArea  =
     {
-      .extent
+      //.offset
       {
-        .width  { static_cast<uint32_t>(m_windowsWindow.getWidth()) },
-        .height { static_cast<uint32_t>(m_windowsWindow.getHeight()) }
+        0,0
+      },
+      //.extent
+      {
+        { static_cast<uint32_t>(m_windowsWindow.getWidth()) },
+        { static_cast<uint32_t>(m_windowsWindow.getHeight()) }
       }
     },
-    .clearValueCount{ m_bfClearOnRender ? static_cast<uint32_t>(m_VKClearValue.size()) : 0u},
-    .pClearValues   { m_bfClearOnRender ? m_VKClearValue.data() : nullptr}
+    RenderPassBeginInfo.clearValueCount = { m_bfClearOnRender ? static_cast<uint32_t>(m_VKClearValue.size()) : 0u},
+    RenderPassBeginInfo.pClearValues    = { m_bfClearOnRender ? m_VKClearValue.data() : nullptr};
   };
   vkCmdBeginRenderPass(Frame.m_VKCommandBuffer, &RenderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -1187,16 +1201,16 @@ void vulkanWindow::FrameEnd()
 
   // Submit the frame to the queue for processing 
   VkPipelineStageFlags WaitStage{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-  VkSubmitInfo SubmitInfo
+  VkSubmitInfo SubmitInfo{};
   {
-    .sType                  { VK_STRUCTURE_TYPE_SUBMIT_INFO },
-    .waitSemaphoreCount     { 1 },
-    .pWaitSemaphores        { &FrameSem.m_VKImageAcquiredSemaphore },
-    .pWaitDstStageMask      { &WaitStage },
-    .commandBufferCount     { 1 },
-    .pCommandBuffers        { &Frame.m_VKCommandBuffer },
-    .signalSemaphoreCount   { 1 },
-    .pSignalSemaphores      { &FrameSem.m_VKRenderCompleteSemaphore }
+    SubmitInfo.sType                = { VK_STRUCTURE_TYPE_SUBMIT_INFO },
+    SubmitInfo.waitSemaphoreCount   = { 1 },
+    SubmitInfo.pWaitSemaphores      = { &FrameSem.m_VKImageAcquiredSemaphore },
+    SubmitInfo.pWaitDstStageMask    = { &WaitStage },
+    SubmitInfo.commandBufferCount   = { 1 },
+    SubmitInfo.pCommandBuffers      = { &Frame.m_VKCommandBuffer },
+    SubmitInfo.signalSemaphoreCount = { 1 },
+    SubmitInfo.pSignalSemaphores    = { &FrameSem.m_VKRenderCompleteSemaphore };
   };
 
   // supposedly as good, if not better than lock_guard
@@ -1213,18 +1227,18 @@ void vulkanWindow::PageFlip()
   // will fail if was not 1 before starting
   assert(!(--m_bfFrameBeginState));
 
-  auto& Frame{ m_Frames[m_FrameIndex] };
+  //auto& Frame{ m_Frames[m_FrameIndex] };
   auto& FrameSem{ m_FrameSemaphores[m_SemaphoreIndex] };
 
   uint32_t PresetIndex{ m_FrameIndex };
-  VkPresentInfoKHR Info
+  VkPresentInfoKHR Info{};
   {
-    .sType              { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR },
-    .waitSemaphoreCount { 1 },
-    .pWaitSemaphores    { &FrameSem.m_VKRenderCompleteSemaphore },
-    .swapchainCount     { 1 },
-    .pSwapchains        { &m_VKSwapchain },
-    .pImageIndices      { &PresetIndex }
+    Info.sType              = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR },
+    Info.waitSemaphoreCount = { 1 },
+    Info.pWaitSemaphores    = { &FrameSem.m_VKRenderCompleteSemaphore },
+    Info.swapchainCount     = { 1 },
+    Info.pSwapchains        = { &m_VKSwapchain },
+    Info.pImageIndices      = { &PresetIndex };
   };
 
   std::scoped_lock Lk{ m_Device->m_VKMainQueue };
@@ -1350,13 +1364,13 @@ bool vulkanWindow::createPipelineInfo(vulkanPipeline& outPipeline, vulkanPipelin
       PCRangeOffset += currPCRange.size;
     }
 
-    VkPipelineLayoutCreateInfo CreateInfo
+    VkPipelineLayoutCreateInfo CreateInfo{};
     {
-      .sType{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO },
-      .setLayoutCount         { static_cast<uint32_t>(outPipeline.m_DescriptorSetLayouts.size()) },
-      .pSetLayouts            { outPipeline.m_DescriptorSetLayouts.data() },
-      .pushConstantRangeCount { static_cast<uint32_t>(PCRanges.size()) },
-      .pPushConstantRanges    { PCRanges.data() }
+      CreateInfo.sType = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO },
+      CreateInfo.setLayoutCount         = { static_cast<uint32_t>(outPipeline.m_DescriptorSetLayouts.size()) },
+      CreateInfo.pSetLayouts            = { outPipeline.m_DescriptorSetLayouts.data() },
+      CreateInfo.pushConstantRangeCount = { static_cast<uint32_t>(PCRanges.size()) },
+      CreateInfo.pPushConstantRanges    = { PCRanges.data() };
     };
 
     outPipeline.m_PipelineLayout = pWH->createPipelineLayout(CreateInfo);
@@ -1368,19 +1382,19 @@ bool vulkanWindow::createPipelineInfo(vulkanPipeline& outPipeline, vulkanPipelin
     }
   }
 
-  outPipeline.m_ShaderStages[0] = VkPipelineShaderStageCreateInfo
+  outPipeline.m_ShaderStages[0] = VkPipelineShaderStageCreateInfo{};
   {
-    .sType { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO },
-    .stage { VK_SHADER_STAGE_VERTEX_BIT },
-    .module{ outPipeline.m_ShaderVert },
-    .pName { "main" }
+    outPipeline.m_ShaderStages[0].sType  = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO },
+    outPipeline.m_ShaderStages[0].stage  = { VK_SHADER_STAGE_VERTEX_BIT },
+    outPipeline.m_ShaderStages[0].module = { outPipeline.m_ShaderVert },
+    outPipeline.m_ShaderStages[0].pName  = { "main" };
   };
-  outPipeline.m_ShaderStages[1] = VkPipelineShaderStageCreateInfo
+  outPipeline.m_ShaderStages[1] = VkPipelineShaderStageCreateInfo{};
   {
-    .sType { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO },
-    .stage { VK_SHADER_STAGE_FRAGMENT_BIT },
-    .module{ outPipeline.m_ShaderFrag },
-    .pName { "main" }
+    outPipeline.m_ShaderStages[1].sType  = { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO },
+    outPipeline.m_ShaderStages[1].stage  = { VK_SHADER_STAGE_FRAGMENT_BIT },
+    outPipeline.m_ShaderStages[1].module = { outPipeline.m_ShaderFrag },
+    outPipeline.m_ShaderStages[1].pName  = { "main" };
   };
 
   if (false == pWH->setupVertexInputInfo(outPipeline, inSetup))
@@ -1390,89 +1404,92 @@ bool vulkanWindow::createPipelineInfo(vulkanPipeline& outPipeline, vulkanPipelin
     return false;
   }
 
-  outPipeline.m_InputAssembly = VkPipelineInputAssemblyStateCreateInfo
+  outPipeline.m_InputAssembly = VkPipelineInputAssemblyStateCreateInfo{};
   {
-    .sType{ VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO },
-    .topology								{ VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST },
-    .primitiveRestartEnable	{ VK_FALSE }
+    outPipeline.m_InputAssembly.sType = { VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO },
+    outPipeline.m_InputAssembly.topology							 = { VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST },
+    outPipeline.m_InputAssembly.primitiveRestartEnable = { VK_FALSE };
   };
 
-  outPipeline.m_Rasterizer = VkPipelineRasterizationStateCreateInfo
+  outPipeline.m_Rasterizer = VkPipelineRasterizationStateCreateInfo{};
   {
-    .sType{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO },
-    .depthClampEnable				{ VK_FALSE },	// clamp instead of discarding stuff outside the near/far planes
-    .rasterizerDiscardEnable{ VK_FALSE },
-    .polygonMode						{ VK_POLYGON_MODE_FILL },
-    .cullMode								{ VK_CULL_MODE_BACK_BIT },	// back face culling
-    .frontFace							{ VK_FRONT_FACE_COUNTER_CLOCKWISE },
-    .depthBiasEnable				{ VK_FALSE },
-    .depthBiasConstantFactor{ 0.0f },
-    .depthBiasClamp					{ 0.0f },
-    .depthBiasSlopeFactor		{ 0.0f },
-    .lineWidth							{ 1.0f }
+    outPipeline.m_Rasterizer.sType = { VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO },
+    outPipeline.m_Rasterizer.depthClampEnable				 = { VK_FALSE },	// clamp instead of discarding stuff outside the near/far planes
+    outPipeline.m_Rasterizer.rasterizerDiscardEnable = { VK_FALSE },
+    outPipeline.m_Rasterizer.polygonMode						 = { VK_POLYGON_MODE_FILL },
+    outPipeline.m_Rasterizer.cullMode								 = { VK_CULL_MODE_BACK_BIT },	// back face culling
+    outPipeline.m_Rasterizer.frontFace							 = { VK_FRONT_FACE_COUNTER_CLOCKWISE },
+    outPipeline.m_Rasterizer.depthBiasEnable				 = { VK_FALSE },
+    outPipeline.m_Rasterizer.depthBiasConstantFactor = { 0.0f },
+    outPipeline.m_Rasterizer.depthBiasClamp					 = { 0.0f },
+    outPipeline.m_Rasterizer.depthBiasSlopeFactor		 = { 0.0f },
+    outPipeline.m_Rasterizer.lineWidth							 = { 1.0f };
   };
 
-  outPipeline.m_Multisampling = VkPipelineMultisampleStateCreateInfo
+  outPipeline.m_Multisampling = VkPipelineMultisampleStateCreateInfo{};
   {
-    .sType{ VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO },
-    .rasterizationSamples		{ VK_SAMPLE_COUNT_1_BIT },
-    .sampleShadingEnable		{ VK_FALSE },
-    .minSampleShading				{ 1.0f },
-    .pSampleMask						{ nullptr },
-    .alphaToCoverageEnable	{ VK_FALSE },
-    .alphaToOneEnable				{ VK_FALSE }
+    outPipeline.m_Multisampling.sType = { VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO },
+    outPipeline.m_Multisampling.rasterizationSamples  = { VK_SAMPLE_COUNT_1_BIT },
+    outPipeline.m_Multisampling.sampleShadingEnable   = { VK_FALSE },
+    outPipeline.m_Multisampling.minSampleShading      = { 1.0f },
+    outPipeline.m_Multisampling.pSampleMask           = { nullptr },
+    outPipeline.m_Multisampling.alphaToCoverageEnable = { VK_FALSE },
+    outPipeline.m_Multisampling.alphaToOneEnable      = { VK_FALSE };
   };
 
-  outPipeline.m_DepthStencilState = VkPipelineDepthStencilStateCreateInfo
+  outPipeline.m_DepthStencilState = VkPipelineDepthStencilStateCreateInfo{};
   {
-    .sType{ VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO },
-    .pNext{ nullptr },
-    .flags{ 0 },
-    .depthTestEnable{ VK_TRUE },		// make this an option next time?
-    .depthWriteEnable{ VK_TRUE },		// make this an option next time?
-    .depthCompareOp{ VK_COMPARE_OP_LESS_OR_EQUAL },
-    .depthBoundsTestEnable{ VK_TRUE },	// make this an option next time?
-    .stencilTestEnable{ VK_TRUE },			// make this an option next time?
-    .minDepthBounds{ 0.0f },
-    .maxDepthBounds{ 1.0f }
+    outPipeline.m_DepthStencilState.sType = { VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO },
+    outPipeline.m_DepthStencilState.pNext = { nullptr },
+    outPipeline.m_DepthStencilState.flags = { 0 },
+    outPipeline.m_DepthStencilState.depthTestEnable  = { VK_TRUE },		// make this an option next time?
+    outPipeline.m_DepthStencilState.depthWriteEnable = { VK_TRUE },		// make this an option next time?
+    outPipeline.m_DepthStencilState.depthCompareOp   = { VK_COMPARE_OP_LESS_OR_EQUAL },
+    outPipeline.m_DepthStencilState.depthBoundsTestEnable = { VK_TRUE },	// make this an option next time?
+    outPipeline.m_DepthStencilState.stencilTestEnable     = { VK_TRUE },			// make this an option next time?
+    outPipeline.m_DepthStencilState.minDepthBounds = { 0.0f },
+    outPipeline.m_DepthStencilState.maxDepthBounds = { 1.0f };
   };
 
-  outPipeline.m_ColorBlendAttachment = VkPipelineColorBlendAttachmentState
+  outPipeline.m_ColorBlendAttachment = VkPipelineColorBlendAttachmentState{};
   {
-    .blendEnable				{ VK_TRUE },		// should it be false?
-    .srcColorBlendFactor{ VK_BLEND_FACTOR_SRC_ALPHA },
-    .dstColorBlendFactor{ VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA },
-    .colorBlendOp				{ VK_BLEND_OP_ADD },
-    .srcAlphaBlendFactor{ VK_BLEND_FACTOR_SRC_ALPHA },
-    .dstAlphaBlendFactor{ VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA },
-    .alphaBlendOp{},
-    .colorWriteMask
+    outPipeline.m_ColorBlendAttachment.blendEnable				 = { VK_TRUE },		// should it be false?
+    outPipeline.m_ColorBlendAttachment.srcColorBlendFactor = { VK_BLEND_FACTOR_SRC_ALPHA },
+    outPipeline.m_ColorBlendAttachment.dstColorBlendFactor = { VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA },
+    outPipeline.m_ColorBlendAttachment.colorBlendOp				 = { VK_BLEND_OP_ADD },
+    outPipeline.m_ColorBlendAttachment.srcAlphaBlendFactor = { VK_BLEND_FACTOR_SRC_ALPHA },
+    outPipeline.m_ColorBlendAttachment.dstAlphaBlendFactor = { VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA },
+    outPipeline.m_ColorBlendAttachment.alphaBlendOp        = {},
+    outPipeline.m_ColorBlendAttachment.colorWriteMask =
     {
       VK_COLOR_COMPONENT_R_BIT |
       VK_COLOR_COMPONENT_G_BIT |
       VK_COLOR_COMPONENT_B_BIT |
       VK_COLOR_COMPONENT_A_BIT
-    }
+    };
   };
 
-  outPipeline.m_ColorBlending = VkPipelineColorBlendStateCreateInfo
+  outPipeline.m_ColorBlending = VkPipelineColorBlendStateCreateInfo{};
   {
-    .sType{ VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO },
-    .logicOpEnable	{ VK_TRUE },
-    .logicOp				{ VK_LOGIC_OP_COPY },
-    .attachmentCount{ 1 },
-    .pAttachments		{ &outPipeline.m_ColorBlendAttachment },
-    .blendConstants { 0.0f, 0.0f, 0.0f, 0.0f }	// ????
+    outPipeline.m_ColorBlending.sType = { VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO },
+    outPipeline.m_ColorBlending.logicOpEnable	= { VK_TRUE },
+    outPipeline.m_ColorBlending.logicOp				= { VK_LOGIC_OP_COPY },
+    outPipeline.m_ColorBlending.attachmentCount = { 1 },
+    outPipeline.m_ColorBlending.pAttachments    = { &outPipeline.m_ColorBlendAttachment };
+    outPipeline.m_ColorBlending.blendConstants[0] = 0.0f;
+    outPipeline.m_ColorBlending.blendConstants[1] = 0.0f;
+    outPipeline.m_ColorBlending.blendConstants[2] = 0.0f;
+    outPipeline.m_ColorBlending.blendConstants[3] = 0.0f;
   };
 
   outPipeline.m_DynamicStates[0] = VK_DYNAMIC_STATE_VIEWPORT;
   outPipeline.m_DynamicStates[1] = VK_DYNAMIC_STATE_SCISSOR;
 
-  outPipeline.m_DynamicStateCreateInfo = VkPipelineDynamicStateCreateInfo
+  outPipeline.m_DynamicStateCreateInfo = VkPipelineDynamicStateCreateInfo{};
   {
-    .sType{ VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO },
-    .dynamicStateCount	{ static_cast<uint32_t>(outPipeline.m_DynamicStates.size()) },
-    .pDynamicStates			{ outPipeline.m_DynamicStates.data() }
+    outPipeline.m_DynamicStateCreateInfo.sType = { VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO },
+    outPipeline.m_DynamicStateCreateInfo.dynamicStateCount = { static_cast<uint32_t>(outPipeline.m_DynamicStates.size()) },
+    outPipeline.m_DynamicStateCreateInfo.pDynamicStates		 = { outPipeline.m_DynamicStates.data() };
   };
 
   return true;
@@ -1500,33 +1517,33 @@ bool vulkanWindow::createAndSetPipeline(vulkanPipeline& pipelineCustomCreateInfo
 
   updateDefaultViewportAndScissor();
 
-  VkPipelineViewportStateCreateInfo viewportState
+  VkPipelineViewportStateCreateInfo viewportState{};
   {
-      .sType{ VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO },
-      .viewportCount{ 1 },
-      .pViewports{ &m_DefaultViewport },
-      .scissorCount{ 1 },
-      .pScissors{ &m_DefaultScissor }
+      viewportState.sType = { VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO },
+      viewportState.viewportCount = { 1 },
+      viewportState.pViewports = { &m_DefaultViewport },
+      viewportState.scissorCount = { 1 },
+      viewportState.pScissors = { &m_DefaultScissor };
   };
 
-  VkGraphicsPipelineCreateInfo CreateInfo
+  VkGraphicsPipelineCreateInfo CreateInfo{};
   {
-    .sType{ VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO },
-    .stageCount         { static_cast<uint32_t>(pipelineCustomCreateInfo.m_ShaderStages.size()) },
-    .pStages            { pipelineCustomCreateInfo.m_ShaderStages.data() },
-    .pVertexInputState  { &pipelineCustomCreateInfo.m_VertexInputInfo },
-    .pInputAssemblyState{ &pipelineCustomCreateInfo.m_InputAssembly },
-    .pViewportState     { &viewportState },
-    .pRasterizationState{ &pipelineCustomCreateInfo.m_Rasterizer },
-    .pMultisampleState  { &pipelineCustomCreateInfo.m_Multisampling },
-    .pDepthStencilState { &pipelineCustomCreateInfo.m_DepthStencilState },
-    .pColorBlendState   { &pipelineCustomCreateInfo.m_ColorBlending },
-    .pDynamicState      { &pipelineCustomCreateInfo.m_DynamicStateCreateInfo },
-    .layout             { pipelineCustomCreateInfo.m_PipelineLayout },
-    .renderPass         { m_VKRenderPass },
-    .subpass            { 0 },
-    .basePipelineHandle { VK_NULL_HANDLE },
-    .basePipelineIndex  { -1 }
+    CreateInfo.sType = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO },
+    CreateInfo.stageCount          = { static_cast<uint32_t>(pipelineCustomCreateInfo.m_ShaderStages.size()) },
+    CreateInfo.pStages             = { pipelineCustomCreateInfo.m_ShaderStages.data() },
+    CreateInfo.pVertexInputState   = { &pipelineCustomCreateInfo.m_VertexInputInfo },
+    CreateInfo.pInputAssemblyState = { &pipelineCustomCreateInfo.m_InputAssembly },
+    CreateInfo.pViewportState      = { &viewportState },
+    CreateInfo.pRasterizationState = { &pipelineCustomCreateInfo.m_Rasterizer },
+    CreateInfo.pMultisampleState   = { &pipelineCustomCreateInfo.m_Multisampling },
+    CreateInfo.pDepthStencilState  = { &pipelineCustomCreateInfo.m_DepthStencilState },
+    CreateInfo.pColorBlendState    = { &pipelineCustomCreateInfo.m_ColorBlending },
+    CreateInfo.pDynamicState       = { &pipelineCustomCreateInfo.m_DynamicStateCreateInfo },
+    CreateInfo.layout              = { pipelineCustomCreateInfo.m_PipelineLayout },
+    CreateInfo.renderPass          = { m_VKRenderPass },
+    CreateInfo.subpass             = { 0 },
+    CreateInfo.basePipelineHandle  = { VK_NULL_HANDLE },
+    CreateInfo.basePipelineIndex   = { -1 };
   };
 
   VkPipeline pipelineToSet{ VK_NULL_HANDLE };
@@ -1543,7 +1560,7 @@ bool vulkanWindow::createAndSetPipeline(vulkanPipeline& pipelineCustomCreateInfo
       return false;
     }
 
-    auto emplaceResult{ m_VKPipelines.emplace(&pipelineCustomCreateInfo, vulkanPipelineData{ .m_Pipeline{ pipelineToSet } }) };
+    auto emplaceResult{ m_VKPipelines.emplace(&pipelineCustomCreateInfo, vulkanPipelineData{ pipelineToSet }) };
     if (false == emplaceResult.second)
     {
       // I have no response, just pretend it never happened

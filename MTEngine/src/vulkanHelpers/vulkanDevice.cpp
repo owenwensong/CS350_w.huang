@@ -99,17 +99,21 @@ bool vulkanDevice::createGraphicsDevice(std::vector<VkQueueFamilyProperties> con
     {
         VkDeviceQueueCreateInfo
         {
-            .sType              = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-            .queueFamilyIndex   = m_MainQueueIndex,
-            .queueCount         = static_cast<decltype(VkDeviceQueueCreateInfo::queueCount)>(queuePriorities.size()),
-            .pQueuePriorities   = queuePriorities.data()
+            VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            nullptr,
+            0,
+            m_MainQueueIndex,
+            static_cast<decltype(VkDeviceQueueCreateInfo::queueCount)>(queuePriorities.size()),
+            queuePriorities.data()
         },
         VkDeviceQueueCreateInfo
         {
-            .sType              = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-            .queueFamilyIndex   = m_TransferQueueIndex,
-            .queueCount         = static_cast<decltype(VkDeviceQueueCreateInfo::queueCount)>(queuePriorities.size()),
-            .pQueuePriorities   = queuePriorities.data()
+            VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+            nullptr,
+            0,
+            m_TransferQueueIndex,
+            static_cast<decltype(VkDeviceQueueCreateInfo::queueCount)>(queuePriorities.size()),
+            queuePriorities.data()
         }
     };
 
@@ -126,15 +130,16 @@ bool vulkanDevice::createGraphicsDevice(std::vector<VkQueueFamilyProperties> con
     };
     VkDeviceCreateInfo deviceCreateInfo
     {
-        .sType                      = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-        .pNext                      = nullptr,
-        .queueCreateInfoCount       = static_cast<decltype(VkDeviceCreateInfo::queueCreateInfoCount)>(queueCreateInfo.size()),
-        .pQueueCreateInfos          = queueCreateInfo.data(),
-        .enabledLayerCount          = 0,
-        .ppEnabledLayerNames        = nullptr,
-        .enabledExtensionCount      = static_cast<decltype(VkDeviceCreateInfo::enabledExtensionCount)>(enabledExtensions.size()),
-        .ppEnabledExtensionNames    = enabledExtensions.data(),
-        .pEnabledFeatures           = &Features
+        VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+        nullptr,
+        0,
+        static_cast<decltype(VkDeviceCreateInfo::queueCreateInfoCount)>(queueCreateInfo.size()),
+        queueCreateInfo.data(),
+        0,
+        nullptr,
+        static_cast<decltype(VkDeviceCreateInfo::enabledExtensionCount)>(enabledExtensions.size()),
+        enabledExtensions.data(),
+        &Features
     };
 
     std::vector<const char*> ValidationLayers;
@@ -277,9 +282,9 @@ bool vulkanDevice::initialize(uint32_t MainQueueIndex, VkPhysicalDevice Physical
     vkGetPhysicalDeviceProperties(m_VKPhysicalDevice, &m_VKPhysicalDeviceProperties);
 
     // Create the Pipeline Cache
-    VkPipelineCacheCreateInfo pipelineCacheCreateInfo
+    VkPipelineCacheCreateInfo pipelineCacheCreateInfo{};
     {
-        .sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO
+      pipelineCacheCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO;
     };
 
     if (VkResult tmpRes{ vkCreatePipelineCache(m_VKDevice, &pipelineCacheCreateInfo, m_pVKInst->m_pVKAllocator, &m_VKPipelineCache) }; tmpRes != VK_SUCCESS)
@@ -307,13 +312,13 @@ bool vulkanDevice::initialize(uint32_t MainQueueIndex, VkPhysicalDevice Physical
             VkDescriptorPoolSize{ VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,          max_descriptors_per_pool_v }
         };
 
-        VkDescriptorPoolCreateInfo PoolCreateInfo
+        VkDescriptorPoolCreateInfo PoolCreateInfo{};
         {
-            .sType          { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO },
-            .flags          { VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT },
-            .maxSets        { static_cast<decltype(VkDescriptorPoolCreateInfo::maxSets)>(max_descriptors_per_pool_v) },
-            .poolSizeCount  { static_cast<decltype(VkDescriptorPoolCreateInfo::poolSizeCount)>(PoolSizes.size()) },
-            .pPoolSizes     { PoolSizes.data() }
+          PoolCreateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+          PoolCreateInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+          PoolCreateInfo.maxSets = static_cast<decltype(VkDescriptorPoolCreateInfo::maxSets)>(max_descriptors_per_pool_v);
+          PoolCreateInfo.poolSizeCount = static_cast<decltype(VkDescriptorPoolCreateInfo::poolSizeCount)>(PoolSizes.size());
+          PoolCreateInfo.pPoolSizes = PoolSizes.data();
         };
 
         {   // from what I checked, scoped_lock is a superior lock_guard so I will use it instead even for single object locking
@@ -328,11 +333,11 @@ bool vulkanDevice::initialize(uint32_t MainQueueIndex, VkPhysicalDevice Physical
     }
 
     {
-      VkCommandPoolCreateInfo CreateInfo
+      VkCommandPoolCreateInfo CreateInfo{};
       {
-        .sType{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO },
-        .flags{ VK_COMMAND_POOL_CREATE_TRANSIENT_BIT },
-        .queueFamilyIndex{ m_TransferQueueIndex }
+        CreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        CreateInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+        CreateInfo.queueFamilyIndex = m_TransferQueueIndex;
       };
       if (VkResult tmpRes{ vkCreateCommandPool(m_VKDevice, &CreateInfo, m_pVKInst->m_pVKAllocator, &m_TransferCommandPool) }; tmpRes != VK_SUCCESS)
       {
@@ -341,11 +346,11 @@ bool vulkanDevice::initialize(uint32_t MainQueueIndex, VkPhysicalDevice Physical
       }
     }
     {
-      VkCommandPoolCreateInfo CreateInfo
+      VkCommandPoolCreateInfo CreateInfo{};
       {
-        .sType{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO },
-        .flags{ VK_COMMAND_POOL_CREATE_TRANSIENT_BIT },
-        .queueFamilyIndex{ m_MainQueueIndex }
+        CreateInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+        CreateInfo.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
+        CreateInfo.queueFamilyIndex = m_MainQueueIndex;
       };
       if (VkResult tmpRes{ vkCreateCommandPool(m_VKDevice, &CreateInfo, m_pVKInst->m_pVKAllocator, &m_TransferCommandSpecialPool) }; tmpRes != VK_SUCCESS)
       {

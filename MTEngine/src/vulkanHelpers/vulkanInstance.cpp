@@ -14,14 +14,14 @@
 #include <iostream>	// for debugCallback cerr
 #include <memory>
 #include <array>
-#include <span>
+//#include <span>
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback
 (
 		VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity, 
-		VkDebugUtilsMessageTypeFlagsEXT messageType, 
+		VkDebugUtilsMessageTypeFlagsEXT /*messageType*/,
 		VkDebugUtilsMessengerCallbackDataEXT const* pCallbackData, 
-		void* pUserData
+		void* /*pUserData*/
 )
 {		// >= rather than & to cover VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT as well
 		if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
@@ -44,12 +44,12 @@ vulkanInstance::vulkanInstance(bool enableDebugLayers, bool enableRenderDoc) :
 {
 		if (OK() && bValidation)
 		{
-				VkDebugUtilsMessengerCreateInfoEXT CreateInfo
+			VkDebugUtilsMessengerCreateInfoEXT CreateInfo{};
 				{
-						.sType					{ VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT },
-						.messageSeverity{ VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT },
-						.messageType		{ VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT },
-						.pfnUserCallback{ debugCallback }
+					CreateInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
+					CreateInfo.messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+					CreateInfo.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+					CreateInfo.pfnUserCallback = debugCallback;
 				};
 				PFN_vkCreateDebugUtilsMessengerEXT pFnCreateDebugUtilsMessenger
 				{
@@ -90,16 +90,16 @@ vulkanInstance::~vulkanInstance()
 
 VkInstance vulkanInstance::createVkInstance(bool enableDebugLayers, bool enableRenderDoc)
 {
-		VkApplicationInfo vkAppInfo
-		{
-			.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
-			.pNext = nullptr,
-			.pApplicationName = "CSD2150MT",
-			.applicationVersion = 1,
-			.pEngineName = "CSD2150MT",
-			.engineVersion = 1,
-			.apiVersion = vulkanInstance::apiVersion
-		};
+	VkApplicationInfo vkAppInfo{};
+	{
+		vkAppInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
+		vkAppInfo.pNext = nullptr;
+		vkAppInfo.pApplicationName = "CSD2150MT";
+		vkAppInfo.applicationVersion = 1;
+		vkAppInfo.pEngineName = "CSD2150MT";
+		vkAppInfo.engineVersion = 1;
+		vkAppInfo.apiVersion = vulkanInstance::apiVersion;
+	};
 
 		std::vector<const char*> Extensions
 		{
@@ -126,16 +126,16 @@ VkInstance vulkanInstance::createVkInstance(bool enableDebugLayers, bool enableR
 				Layers.emplace_back("VK_LAYER_RENDERDOC_Capture");
 		}
 
-		VkInstanceCreateInfo vkCreateInstanceInfo
+		VkInstanceCreateInfo vkCreateInstanceInfo{};
 		{
-			.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-			.pNext = nullptr,
-			.flags = 0,
-			.pApplicationInfo = &vkAppInfo,
-			.enabledLayerCount = static_cast<decltype(VkInstanceCreateInfo::enabledLayerCount)>(Layers.size()),
-			.ppEnabledLayerNames = Layers.size() ? Layers.data() : nullptr,
-			.enabledExtensionCount = static_cast<decltype(VkInstanceCreateInfo::enabledExtensionCount)>(Extensions.size()),
-			.ppEnabledExtensionNames = Extensions.size() ? Extensions.data() : nullptr
+			vkCreateInstanceInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
+			vkCreateInstanceInfo.pNext = nullptr;
+			vkCreateInstanceInfo.flags = 0;
+			vkCreateInstanceInfo.pApplicationInfo = &vkAppInfo;
+			vkCreateInstanceInfo.enabledLayerCount = static_cast<decltype(VkInstanceCreateInfo::enabledLayerCount)>(Layers.size());
+			vkCreateInstanceInfo.ppEnabledLayerNames = Layers.size() ? Layers.data() : nullptr;
+			vkCreateInstanceInfo.enabledExtensionCount = static_cast<decltype(VkInstanceCreateInfo::enabledExtensionCount)>(Extensions.size());
+			vkCreateInstanceInfo.ppEnabledExtensionNames = Extensions.size() ? Extensions.data() : nullptr;
 		};
 
 		VkInstance retval{ VK_NULL_HANDLE };
@@ -198,16 +198,16 @@ std::vector<const char*> getValidationLayers()
 		std::vector<const char*> retval;// empty rn
 		auto FilterValidationLayers
 		{
-			+[](std::vector<const char*>& Layers, std::span<VkLayerProperties> EnumeratedView, std::span<const char* const> FilterView)
+			+[](std::vector<const char*>& Layers, const VkLayerProperties* pEnumeratedView, uint32_t cEnumeratedView, const char* const* pFilterView, uint32_t cFilterView)
 			{
 				Layers.clear();
-				for (const auto& LayerEntry : EnumeratedView)
+				for (uint32_t i{ 0 }; i < cEnumeratedView; ++i)
 				{
+					const auto& LayerEntry{ pEnumeratedView[i] };
 					std::string LayerEntryName{ LayerEntry.layerName };
-					for (const char* FilterEntry : FilterView)
-					{// strings have internal hashes, so comparing a fixed string with a cString using the STL's operator== should be faster
-						//std::cout << "LayerEntryName: " << LayerEntryName << std::endl;
-						//std::cout << "FilterEntry: " << FilterEntry << std::endl;
+					for (uint32_t j{ 0 }; j < cFilterView; ++j)
+					{
+						const char* FilterEntry{ pFilterView[j] };
 						if (LayerEntryName == FilterEntry)
 						{
 							Layers.emplace_back(FilterEntry);
@@ -222,8 +222,8 @@ std::vector<const char*> getValidationLayers()
 		FilterValidationLayers
 		(
 				retval,
-				std::span<VkLayerProperties>{ LayerProperties.get(), ValidationLayerCount },
-				std::span<const char* const>{ s_ValidationLayerNames_Alt1 }
+				LayerProperties.get(), ValidationLayerCount,
+				s_ValidationLayerNames_Alt1.data(), static_cast<uint32_t>(s_ValidationLayerNames_Alt1.size())
 		);
 		//std::cout << "size: " << retval.size() << std::endl;
 		if (retval.size() == s_ValidationLayerNames_Alt1.size())return retval;// NRVO return
@@ -234,8 +234,8 @@ std::vector<const char*> getValidationLayers()
 		FilterValidationLayers
 		(
 				retval,
-				std::span<VkLayerProperties>{ LayerProperties.get(), ValidationLayerCount },
-				std::span<const char* const>{ s_ValidationLayerNames_Alt2 }
+				LayerProperties.get(), ValidationLayerCount,
+				s_ValidationLayerNames_Alt2.data(), static_cast<uint32_t>(s_ValidationLayerNames_Alt2.size())
 		);
 		//std::cout << "size: " << retval.size() << std::endl;
 		if (retval.size() == s_ValidationLayerNames_Alt2.size())return retval;// NRVO return

@@ -10,9 +10,9 @@
 #include <vulkanHelpers/vulkanTexture.h>
 #include <vulkanHelpers/printWarnings.h>
 #include <handlers/windowHandler.h>
-#pragma warning (disable : 4244 26451 26495 26812)// disable library warnings
+#pragma warning (disable : 4244 4456 26451 26495 26812)// disable library warnings
 #include <tinyddsloader.h>
-#pragma warning (default : 4244 26451 26495)// reenable warnings except unscoped enum
+#pragma warning (default : 4244 4456 26451 26495)// reenable warnings except unscoped enum
 #include <fstream>
 
 bool tryTinyDDS(tinyddsloader::Result tDDSResult, bool isErrIfFail = false)
@@ -201,19 +201,19 @@ bool windowHandler::createTexture(vulkanTexture& outTexture, vulkanTexture::Setu
   outTexture.m_Extent.depth  = pImgData->m_depth;
 
   { // create image
-    VkImageCreateInfo imageCreateInfo
+    VkImageCreateInfo imageCreateInfo{};
     {
-      .sType{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO },
-      .imageType  { VK_IMAGE_TYPE_2D },
-      .format     { texFormat },
-      .extent     { outTexture.m_Extent },
-      .mipLevels  { texFile.GetMipCount() },
-      .arrayLayers{ 1 },  // not sure how to extract if it does have
-      .samples    { inSetup.m_Samples },
-      .tiling     { inSetup.m_Tiling },
-      .usage      { inSetup.m_Usage },
-      .sharingMode{ VK_SHARING_MODE_EXCLUSIVE },
-      .initialLayout{ VK_IMAGE_LAYOUT_UNDEFINED }
+      imageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+      imageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
+      imageCreateInfo.format = texFormat;
+      imageCreateInfo.extent = outTexture.m_Extent;
+      imageCreateInfo.mipLevels = texFile.GetMipCount();
+      imageCreateInfo.arrayLayers = 1;  // not sure how to extract if it does have
+      imageCreateInfo.samples = inSetup.m_Samples;
+      imageCreateInfo.tiling = inSetup.m_Tiling;
+      imageCreateInfo.usage = inSetup.m_Usage;
+      imageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+      imageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     };
 
     if (VkResult tmpRes{ vkCreateImage(m_pVKDevice->m_VKDevice, &imageCreateInfo, m_pVKInst->m_pVKAllocator, &outTexture.m_Image) }; tmpRes != VK_SUCCESS)
@@ -235,11 +235,11 @@ bool windowHandler::createTexture(vulkanTexture& outTexture, vulkanTexture::Setu
       return false;
     }
 
-    VkMemoryAllocateInfo texMemAllocInfo
+    VkMemoryAllocateInfo texMemAllocInfo{};
     {
-      .sType{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO },
-      .allocationSize { texImageMemReqs.size },
-      .memoryTypeIndex{ memTypeIndex }
+      texMemAllocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+      texMemAllocInfo.allocationSize = texImageMemReqs.size;
+      texMemAllocInfo.memoryTypeIndex = memTypeIndex;
     };
 
     if (VkResult tmpRes{ vkAllocateMemory(m_pVKDevice->m_VKDevice, &texMemAllocInfo, m_pVKInst->m_pVKAllocator, &outTexture.m_Memory) }; tmpRes != VK_SUCCESS)
@@ -267,10 +267,10 @@ bool windowHandler::createTexture(vulkanTexture& outTexture, vulkanTexture::Setu
         stagingBuffer,
         vulkanBuffer::Setup
         {
-          .m_BufferUsage{ vulkanBuffer::s_BufferUsage_Staging },
-          .m_MemPropFlag{ vulkanBuffer::s_MemPropFlag_Staging },
-          .m_Count    { 1 },
-          .m_ElemSize { stagingBufferReqSize }
+          vulkanBuffer::s_BufferUsage_Staging,
+          vulkanBuffer::s_MemPropFlag_Staging,
+          1,
+          stagingBufferReqSize
         }
       ))
     {
@@ -295,27 +295,27 @@ bool windowHandler::createTexture(vulkanTexture& outTexture, vulkanTexture::Setu
       tinyddsloader::DDSFile::ImageData const* pMipImgData{ texFile.GetImageData(i) };
       std::memcpy(reinterpret_cast<char*>(dstData) + offset, pMipImgData->m_mem, pMipImgData->m_memSlicePitch);
       copyRegions.emplace_back(VkBufferImageCopy{
-        .bufferOffset{ offset },
-        .bufferRowLength{ 0 },
-        .bufferImageHeight{ 0 },
-        .imageSubresource
+        offset,
+        0,
+        0,
+        //.imageSubresource
         {
-          .aspectMask{ VK_IMAGE_ASPECT_COLOR_BIT },
-          .mipLevel       { i },
-          .baseArrayLayer { 0 },
-          .layerCount     { 1 }
+          VK_IMAGE_ASPECT_COLOR_BIT,
+          i,
+          0,
+          1
         },
-        .imageOffset
+        //.imageOffset
         {
-          .x{ 0 },
-          .y{ 0 },
-          .z{ 0 }
+          0,
+          0,
+          0
         },
-        .imageExtent
+        //.imageExtent
         {
-          .width  { pMipImgData->m_width },
-          .height { pMipImgData->m_height },
-          .depth  { pMipImgData->m_depth }
+          pMipImgData->m_width ,
+          pMipImgData->m_height,
+          pMipImgData->m_depth 
         }
       });
       offset += pMipImgData->m_memSlicePitch;
@@ -345,27 +345,27 @@ bool windowHandler::createTexture(vulkanTexture& outTexture, vulkanTexture::Setu
   }
 
   { // create image view
-    VkImageViewCreateInfo viewCreateInfo
+    VkImageViewCreateInfo viewCreateInfo{};
     {
-      .sType{ VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO },
-      .image    { outTexture.m_Image },
-      .viewType { VK_IMAGE_VIEW_TYPE_2D },
-      .format   { texFormat },
-      .components
+      viewCreateInfo.sType = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+      viewCreateInfo.image = { outTexture.m_Image };
+      viewCreateInfo.viewType = { VK_IMAGE_VIEW_TYPE_2D };
+      viewCreateInfo.format = { texFormat };
+      viewCreateInfo.components =
       {
-        .r{ VK_COMPONENT_SWIZZLE_IDENTITY },
-        .g{ VK_COMPONENT_SWIZZLE_IDENTITY },
-        .b{ VK_COMPONENT_SWIZZLE_IDENTITY },
-        .a{ VK_COMPONENT_SWIZZLE_IDENTITY }
-      },
-      .subresourceRange
+        { VK_COMPONENT_SWIZZLE_IDENTITY },
+        { VK_COMPONENT_SWIZZLE_IDENTITY },
+        { VK_COMPONENT_SWIZZLE_IDENTITY },
+        { VK_COMPONENT_SWIZZLE_IDENTITY }
+      };
+      viewCreateInfo.subresourceRange =
       {
-        .aspectMask{ VK_IMAGE_ASPECT_COLOR_BIT },
-        .baseMipLevel   { 0 },
-        .levelCount     { texFile.GetMipCount() },
-        .baseArrayLayer { 0 },
-        .layerCount     { 1 }
-      }
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        0,
+        texFile.GetMipCount(),
+        0,
+        1
+      };
     };
 
     if (VkResult tmpRes{ vkCreateImageView(m_pVKDevice->m_VKDevice, &viewCreateInfo, m_pVKInst->m_pVKAllocator, &outTexture.m_View) }; tmpRes != VK_SUCCESS)
@@ -377,23 +377,23 @@ bool windowHandler::createTexture(vulkanTexture& outTexture, vulkanTexture::Setu
   }
 
   { // create sampler
-    VkSamplerCreateInfo samplerCreateInfo
+    VkSamplerCreateInfo samplerCreateInfo{};
     {
-      .sType{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO },
-      .magFilter        { VK_FILTER_LINEAR },
-      .minFilter        { VK_FILTER_LINEAR },
-      .addressModeU     { inSetup.m_AddressModeU },
-      .addressModeV     { inSetup.m_AddressModeV },
-      .addressModeW     { inSetup.m_AddressModeW },
-      .mipLodBias       { 0.0f },
-      .anisotropyEnable { VK_TRUE },
-      .maxAnisotropy    { std::min(16.0f, m_pVKDevice->m_VKPhysicalDeviceProperties.limits.maxSamplerAnisotropy) },
-      .compareEnable    { VK_FALSE },
-      .compareOp        { VK_COMPARE_OP_ALWAYS },
-      .minLod           { 0.0f },
-      .maxLod           { static_cast<float>(texFile.GetMipCount()) },
-      .borderColor      { VK_BORDER_COLOR_INT_OPAQUE_BLACK },
-      .unnormalizedCoordinates{ VK_FALSE }
+      samplerCreateInfo.sType = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+      samplerCreateInfo.magFilter = { VK_FILTER_LINEAR };
+      samplerCreateInfo.minFilter = { VK_FILTER_LINEAR };
+      samplerCreateInfo.addressModeU = { inSetup.m_AddressModeU };
+      samplerCreateInfo.addressModeV = { inSetup.m_AddressModeV };
+      samplerCreateInfo.addressModeW = { inSetup.m_AddressModeW };
+      samplerCreateInfo.mipLodBias = { 0.0f };
+      samplerCreateInfo.anisotropyEnable = { VK_TRUE };
+      samplerCreateInfo.maxAnisotropy = { std::min(16.0f, m_pVKDevice->m_VKPhysicalDeviceProperties.limits.maxSamplerAnisotropy) };
+      samplerCreateInfo.compareEnable = { VK_FALSE };
+      samplerCreateInfo.compareOp = { VK_COMPARE_OP_ALWAYS };
+      samplerCreateInfo.minLod = { 0.0f };
+      samplerCreateInfo.maxLod = { static_cast<float>(texFile.GetMipCount()) };
+      samplerCreateInfo.borderColor = { VK_BORDER_COLOR_INT_OPAQUE_BLACK };
+      samplerCreateInfo.unnormalizedCoordinates = { VK_FALSE };
     };
     if (VkResult tmpRes{ vkCreateSampler(m_pVKDevice->m_VKDevice, &samplerCreateInfo, m_pVKInst->m_pVKAllocator, &outTexture.m_Sampler) }; tmpRes != VK_SUCCESS)
     {
@@ -407,28 +407,28 @@ bool windowHandler::createTexture(vulkanTexture& outTexture, vulkanTexture::Setu
 #undef CTPATHWARNHELPER
 }
 
-void windowHandler::transitionImageLayout(VkImage image, VkFormat format, uint32_t mipLevels, bool isTransferStart)
+void windowHandler::transitionImageLayout(VkImage image, VkFormat /*format*/, uint32_t mipLevels, bool isTransferStart)
 {
   if (VkCommandBuffer CBuf{ beginOneTimeSubmitCommand(!isTransferStart) }; CBuf != VK_NULL_HANDLE)
   {
-    VkImageMemoryBarrier imgBarrier
+    VkImageMemoryBarrier imgBarrier{};
     {
-      .sType{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER },
-      .srcAccessMask      { static_cast<VkAccessFlags>(isTransferStart ? VK_ACCESS_NONE_KHR : VK_ACCESS_TRANSFER_WRITE_BIT) },
-      .dstAccessMask      { static_cast<VkAccessFlags>(isTransferStart ? VK_ACCESS_TRANSFER_WRITE_BIT : VK_ACCESS_SHADER_READ_BIT) },
-      .oldLayout          { isTransferStart ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL },
-      .newLayout          { isTransferStart ? VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL },
-      .srcQueueFamilyIndex{ VK_QUEUE_FAMILY_IGNORED },
-      .dstQueueFamilyIndex{ VK_QUEUE_FAMILY_IGNORED },
-      .image              { image },
-      .subresourceRange
+      imgBarrier.sType = { VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
+      imgBarrier.srcAccessMask = { static_cast<VkAccessFlags>(isTransferStart ? VK_ACCESS_NONE_KHR : VK_ACCESS_TRANSFER_WRITE_BIT) };
+      imgBarrier.dstAccessMask = { static_cast<VkAccessFlags>(isTransferStart ? VK_ACCESS_TRANSFER_WRITE_BIT : VK_ACCESS_SHADER_READ_BIT) };
+      imgBarrier.oldLayout = { isTransferStart ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL };
+      imgBarrier.newLayout = { isTransferStart ? VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL : VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
+      imgBarrier.srcQueueFamilyIndex = { VK_QUEUE_FAMILY_IGNORED };
+      imgBarrier.dstQueueFamilyIndex = { VK_QUEUE_FAMILY_IGNORED };
+      imgBarrier.image               = { image };
+      imgBarrier.subresourceRange =
       {
-        .aspectMask{ VK_IMAGE_ASPECT_COLOR_BIT },
-        .baseMipLevel   { 0 },
-        .levelCount     { mipLevels },
-        .baseArrayLayer { 0 },
-        .layerCount     { 1 }
-      }
+        VK_IMAGE_ASPECT_COLOR_BIT,
+        0,
+        mipLevels,
+        0,
+        1
+      };
     };
 
     vkCmdPipelineBarrier

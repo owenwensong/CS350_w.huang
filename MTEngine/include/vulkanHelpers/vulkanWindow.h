@@ -107,7 +107,7 @@ public: // all public, let whoever touch it /shrug
     windowsWindow                       m_windowsWindow         {};
     std::shared_ptr<vulkanDevice>       m_Device                {};
     VkSurfaceKHR                        m_VKSurface             {};
-    std::array<VkClearValue, 2>         m_VKClearValue          { VkClearValue{.color{.float32{ 0.0f, 0.0f, 0.0f, 1.0f } } }, VkClearValue{ .depthStencil{ 1.0f, 0 } } };
+    std::array<VkClearValue, 2>         m_VKClearValue          { VkClearValue{VkClearColorValue{ 0.0f, 0.0f, 0.0f, 1.0f } }, VkClearValue{ 1.0f, 0 } };
     VkSwapchainKHR                      m_VKSwapchain           {};
     uint32_t                            m_ImageCount            { 2 };// default double buffer
     std::unique_ptr<vulkanFrame[]>      m_Frames                {};
@@ -130,12 +130,12 @@ public: // all public, let whoever touch it /shrug
     // mati_per_renderpass_map  // not going to do this until required...
     // mat_per_renderpass_map   // so much back and forth I cannot read this
 
-    using bitfield = intptr_t;  // bitfield size match ptr size
+    using bitfield = uintptr_t;  // bitfield size match ptr size
 
-    bitfield                            m_bfClearOnRender : 1   { 0 };
-    bitfield                            m_bfRebuildSwapChain : 1{ 0 };
-    bitfield                            m_bfInitializeOK : 1    { 0 };
-    bitfield                            m_bfFrameBeginState : 2 { 0 };// unused in release
+    bitfield                            m_bfClearOnRender : 1   ;
+    bitfield                            m_bfRebuildSwapChain : 1;
+    bitfield                            m_bfInitializeOK : 1    ;
+    bitfield                            m_bfFrameBeginState : 2 ;// unused in release
 
 };
 

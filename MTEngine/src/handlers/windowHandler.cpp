@@ -91,11 +91,11 @@ VkShaderModule windowHandler::createShaderModule(const char* relPath)
 VkShaderModule windowHandler::createShaderModule(std::vector<char> const& code)
 {
   VkShaderModule retval{ VK_NULL_HANDLE };		// assuming NRVO
-  VkShaderModuleCreateInfo CreateInfo
+  VkShaderModuleCreateInfo CreateInfo{};
   {
-    .sType{ VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO },
-    .codeSize{ code.size() },
-    .pCode{ reinterpret_cast<uint32_t const*>(code.data()) }
+    CreateInfo.sType = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO },
+    CreateInfo.codeSize = { code.size() },
+    CreateInfo.pCode = { reinterpret_cast<uint32_t const*>(code.data()) };
   };
   if (VkResult tmpRes{ vkCreateShaderModule(m_pVKDevice->m_VKDevice, &CreateInfo, m_pVKInst->m_pVKAllocator, &retval) }; tmpRes != VK_SUCCESS)
   {
@@ -131,12 +131,12 @@ void windowHandler::destroyPipelineLayout(VkPipelineLayout& pipelineLayout)
 VkCommandBuffer windowHandler::beginOneTimeSubmitCommand(bool useMainCommandPool)
 {
   VkCommandPool cmdPool{ useMainCommandPool ? m_pVKDevice->m_TransferCommandSpecialPool : m_pVKDevice->m_TransferCommandPool };
-  VkCommandBufferAllocateInfo AllocInfo
+  VkCommandBufferAllocateInfo AllocInfo{};
   {
-    .sType{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO },
-    .commandPool        { cmdPool },
-    .level              { VK_COMMAND_BUFFER_LEVEL_PRIMARY },
-    .commandBufferCount { 1 }
+    AllocInfo.sType = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO },
+    AllocInfo.commandPool        = { cmdPool },
+    AllocInfo.level              = { VK_COMMAND_BUFFER_LEVEL_PRIMARY },
+    AllocInfo.commandBufferCount = { 1 };
   };
   VkCommandBuffer retval;
   if (VkResult tmpRes{ vkAllocateCommandBuffers(m_pVKDevice->m_VKDevice, &AllocInfo, &retval) }; tmpRes != VK_SUCCESS)
@@ -146,10 +146,10 @@ VkCommandBuffer windowHandler::beginOneTimeSubmitCommand(bool useMainCommandPool
   }
 
   {
-    VkCommandBufferBeginInfo BeginInfo
+    VkCommandBufferBeginInfo BeginInfo{};
     {
-      .sType{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO },
-      .flags{ VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT }
+      BeginInfo.sType = { VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO },
+      BeginInfo.flags = { VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT };
     };
     if (VkResult tmpRes{ vkBeginCommandBuffer(retval, &BeginInfo) }; tmpRes != VK_SUCCESS)
     {
@@ -172,11 +172,11 @@ void windowHandler::endOneTimeSubmitCommand(VkCommandBuffer toEnd, bool useMainC
     printVKWarning(tmpRes, "failed to end transfer command buffer"sv, true);
     return;
   }
-  VkSubmitInfo SubmitInfo
+  VkSubmitInfo SubmitInfo{};
   {
-    .sType{ VK_STRUCTURE_TYPE_SUBMIT_INFO },
-    .commandBufferCount { 1 },
-    .pCommandBuffers    { &toEnd }
+    SubmitInfo.sType = { VK_STRUCTURE_TYPE_SUBMIT_INFO },
+    SubmitInfo.commandBufferCount = { 1 },
+    SubmitInfo.pCommandBuffers    = { &toEnd };
   };
   std::scoped_lock Lk{ lockableQueue };
   if (VkResult tmpRes{ vkQueueSubmit(lockableQueue.get(), 1, &SubmitInfo, VK_NULL_HANDLE) }; tmpRes != VK_SUCCESS)
@@ -208,10 +208,10 @@ bool windowHandler::writeToBuffer(vulkanBuffer& dstBuffer, std::vector<void*> co
       stagingBuffer, 
       vulkanBuffer::Setup
       {
-        .m_BufferUsage{ vulkanBuffer::s_BufferUsage_Staging },
-        .m_MemPropFlag{ vulkanBuffer::s_MemPropFlag_Staging },
-        .m_Count{ totalSrcLen },
-        .m_ElemSize{ 1 }
+        vulkanBuffer::s_BufferUsage_Staging,
+        vulkanBuffer::s_MemPropFlag_Staging,
+        totalSrcLen,
+        1
       }
     ))
   {
@@ -242,11 +242,11 @@ bool windowHandler::copyBuffer(vulkanBuffer& dstBuffer, vulkanBuffer& srcBuffer,
 {
   if (VkCommandBuffer transferCmdBuffer{ beginOneTimeSubmitCommand() }; transferCmdBuffer != VK_NULL_HANDLE)
   {
-    VkBufferCopy copyRegion
+    VkBufferCopy copyRegion{};
     {
-      .srcOffset{ 0 },
-      .dstOffset{ 0 },
-      .size{ cpySize }
+      copyRegion.srcOffset = { 0 },
+      copyRegion.dstOffset = { 0 },
+      copyRegion.size = { cpySize };
     };
     vkCmdCopyBuffer(transferCmdBuffer, srcBuffer.m_Buffer, dstBuffer.m_Buffer, 1, &copyRegion);
     endOneTimeSubmitCommand(transferCmdBuffer);
@@ -265,12 +265,12 @@ bool windowHandler::createBuffer(vulkanBuffer& outBuffer, vulkanBuffer::Setup co
   }
   else
   {
-    VkBufferCreateInfo CreateInfo
+    VkBufferCreateInfo CreateInfo{};
     {
-      .sType{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO },
-      .size { tmpSize },
-      .usage{ inSetup.m_BufferUsage },
-      .sharingMode{ VK_SHARING_MODE_EXCLUSIVE }
+      CreateInfo.sType = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO },
+      CreateInfo.size  = { tmpSize },
+      CreateInfo.usage = { inSetup.m_BufferUsage },
+      CreateInfo.sharingMode = { VK_SHARING_MODE_EXCLUSIVE };
     };
     if (VkResult tmpRes{ vkCreateBuffer(m_pVKDevice->m_VKDevice, &CreateInfo, m_pVKInst->m_pVKAllocator, &outBuffer.m_Buffer) }; tmpRes != VK_SUCCESS)
     {
@@ -284,11 +284,11 @@ bool windowHandler::createBuffer(vulkanBuffer& outBuffer, vulkanBuffer::Setup co
 
   if (uint32_t memTypeIndex; m_pVKDevice->getMemoryType(memReq.memoryTypeBits, inSetup.m_MemPropFlag, memTypeIndex))
   {
-    VkMemoryAllocateInfo AllocInfo
+    VkMemoryAllocateInfo AllocInfo{};
     {
-      .sType{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO },
-      .allocationSize { memReq.size },
-      .memoryTypeIndex{ memTypeIndex },
+      AllocInfo.sType = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO },
+      AllocInfo.allocationSize  = { memReq.size },
+      AllocInfo.memoryTypeIndex = { memTypeIndex };
     };
     if (VkResult tmpRes{ vkAllocateMemory(m_pVKDevice->m_VKDevice, &AllocInfo, m_pVKInst->m_pVKAllocator, &outBuffer.m_BufferMemory) }; tmpRes != VK_SUCCESS)
     {
@@ -333,11 +333,11 @@ void windowHandler::destroyBuffer(vulkanBuffer& inBuffer)
 
 bool windowHandler::setupVertexInputInfo(vulkanPipeline& outPipeline, vulkanPipeline::setup const& inSetup)
 {
-  outPipeline.m_BindingDescription[0] = VkVertexInputBindingDescription
+  outPipeline.m_BindingDescription[0] = VkVertexInputBindingDescription{};
   {
-    .binding  { 0 },
-    // stride dependant on mode
-    .inputRate{ VK_VERTEX_INPUT_RATE_VERTEX }// no instancing yet of course
+    outPipeline.m_BindingDescription[0].binding = { 0 },
+      // stride dependant on mode
+      outPipeline.m_BindingDescription[0].inputRate = { VK_VERTEX_INPUT_RATE_VERTEX };// no instancing yet of course
   };
   
   switch (inSetup.m_VertexBindingMode)
@@ -346,137 +346,137 @@ bool windowHandler::setupVertexInputInfo(vulkanPipeline& outPipeline, vulkanPipe
     outPipeline.m_BindingDescription[0].stride = static_cast<uint32_t>(sizeof(VTX_2D_UV));
     outPipeline.m_AttributeDescription.reserve(2);
     outPipeline.m_AttributeDescription.emplace_back(VkVertexInputAttributeDescription{
-      .location { 0 },  // layout location 0
-      .binding  { 0 },  // bound buffer 0 (SOA)
-      .format   { VK_FORMAT_R32G32_SFLOAT },
-      .offset   { 0 }
+      0,  // layout location 0
+      0,  // bound buffer 0 (SOA)
+      VK_FORMAT_R32G32_SFLOAT,
+      0
     });
     outPipeline.m_AttributeDescription.emplace_back(VkVertexInputAttributeDescription{
-      .location { 1 },  // layout location 1
-      .binding  { 0 },  // bound buffer 0 (SOA)
-      .format   { VK_FORMAT_R32G32_SFLOAT },
-      .offset   { offsetof(VTX_2D_UV, m_Tex) }
+      1,  // layout location 1
+      0,  // bound buffer 0 (SOA)
+      VK_FORMAT_R32G32_SFLOAT,
+      offsetof(VTX_2D_UV, m_Tex)
     });
     break;
   case vulkanPipeline::E_VERTEX_BINDING_MODE::AOS_XY_RGB_F32:
     outPipeline.m_BindingDescription[0].stride = static_cast<uint32_t>(sizeof(VTX_2D_RGB));
     outPipeline.m_AttributeDescription.reserve(2);
     outPipeline.m_AttributeDescription.emplace_back(VkVertexInputAttributeDescription{
-      .location { 0 },  // layout location 0
-      .binding  { 0 },  // bound buffer 0 (SOA)
-      .format   { VK_FORMAT_R32G32_SFLOAT },
-      .offset   { 0 }
+      0,  // layout location 0
+      0,  // bound buffer 0 (SOA)
+      VK_FORMAT_R32G32_SFLOAT,
+      0
     });
     outPipeline.m_AttributeDescription.emplace_back(VkVertexInputAttributeDescription{
-      .location { 1 },  // layout location 1
-      .binding  { 0 },  // bound buffer 0 (SOA)
-      .format   { VK_FORMAT_R32G32B32_SFLOAT },
-      .offset   { offsetof(VTX_2D_RGB, m_Col) }
+      1,  // layout location 1
+      0,  // bound buffer 0 (SOA)
+      VK_FORMAT_R32G32B32_SFLOAT,
+      offsetof(VTX_2D_RGB, m_Col)
     });
     break;
   case vulkanPipeline::E_VERTEX_BINDING_MODE::AOS_XY_RGBA_F32:
     outPipeline.m_BindingDescription[0].stride = static_cast<uint32_t>(sizeof(VTX_2D_RGBA));
     outPipeline.m_AttributeDescription.reserve(2);
     outPipeline.m_AttributeDescription.emplace_back(VkVertexInputAttributeDescription{
-      .location { 0 },  // layout location 0
-      .binding  { 0 },  // bound buffer 0 (SOA)
-      .format   { VK_FORMAT_R32G32_SFLOAT },
-      .offset   { 0 }
+      0,  // layout location 0
+      0,  // bound buffer 0 (SOA)
+      VK_FORMAT_R32G32_SFLOAT,
+      0
     });
     outPipeline.m_AttributeDescription.emplace_back(VkVertexInputAttributeDescription{
-      .location { 1 },  // layout location 1
-      .binding  { 0 },  // bound buffer 0 (SOA)
-      .format   { VK_FORMAT_R32G32B32A32_SFLOAT },
-      .offset   { offsetof(VTX_2D_RGBA, m_Col) }
+      1,  // layout location 1
+      0,  // bound buffer 0 (SOA)
+      VK_FORMAT_R32G32B32A32_SFLOAT,
+      offsetof(VTX_2D_RGBA, m_Col)
     });
     break;
   case vulkanPipeline::E_VERTEX_BINDING_MODE::AOS_XYZ_UV_F32:
     outPipeline.m_BindingDescription[0].stride = static_cast<uint32_t>(sizeof(VTX_3D_UV));
     outPipeline.m_AttributeDescription.reserve(2);
     outPipeline.m_AttributeDescription.emplace_back(VkVertexInputAttributeDescription{
-      .location { 0 },  // layout location 0
-      .binding  { 0 },  // bound buffer 0 (SOA)
-      .format   { VK_FORMAT_R32G32B32_SFLOAT },
-      .offset   { 0 }
+      0,  // layout location 0
+      0,  // bound buffer 0 (SOA)
+      VK_FORMAT_R32G32B32_SFLOAT,
+      0
     });
     outPipeline.m_AttributeDescription.emplace_back(VkVertexInputAttributeDescription{
-      .location { 1 },  // layout location 1
-      .binding  { 0 },  // bound buffer 0 (SOA)
-      .format   { VK_FORMAT_R32G32_SFLOAT },
-      .offset   { offsetof(VTX_3D_UV, m_Tex) }
+      1,  // layout location 1
+      0,  // bound buffer 0 (SOA)
+      VK_FORMAT_R32G32_SFLOAT,
+      offsetof(VTX_3D_UV, m_Tex)
     });
     break;
   case vulkanPipeline::E_VERTEX_BINDING_MODE::AOS_XYZ_UV_NML_TAN_F32:
     outPipeline.m_BindingDescription[0].stride = static_cast<uint32_t>(sizeof(VTX_3D_UV_NML_TAN));
     outPipeline.m_AttributeDescription.reserve(4);
     outPipeline.m_AttributeDescription.emplace_back(VkVertexInputAttributeDescription{
-      .location { 0 },  // layout location 0
-      .binding  { 0 },  // bound buffer 0 (SOA)
-      .format   { VK_FORMAT_R32G32B32_SFLOAT },
-      .offset   { 0 }
+      0,  // layout location 0
+      0,  // bound buffer 0 (SOA)
+      VK_FORMAT_R32G32B32_SFLOAT,
+      0
     });
     outPipeline.m_AttributeDescription.emplace_back(VkVertexInputAttributeDescription{
-      .location { 1 },  // layout location 1
-      .binding  { 0 },  // bound buffer 0 (SOA)
-      .format   { VK_FORMAT_R32G32_SFLOAT },
-      .offset   { offsetof(VTX_3D_UV_NML_TAN, m_Tex) }
+      1,  // layout location 1
+      0,  // bound buffer 0 (SOA)
+      VK_FORMAT_R32G32_SFLOAT,
+      offsetof(VTX_3D_UV_NML_TAN, m_Tex)
     });
     outPipeline.m_AttributeDescription.emplace_back(VkVertexInputAttributeDescription{
-      .location { 2 },  // layout location 2
-      .binding  { 0 },  // bound buffer 0 (SOA)
-      .format   { VK_FORMAT_R32G32B32_SFLOAT },
-      .offset   { offsetof(VTX_3D_UV_NML_TAN, m_Nml) }
+      2,  // layout location 2
+      0,  // bound buffer 0 (SOA)
+      VK_FORMAT_R32G32B32_SFLOAT,
+      offsetof(VTX_3D_UV_NML_TAN, m_Nml)
     });
     outPipeline.m_AttributeDescription.emplace_back(VkVertexInputAttributeDescription{
-      .location { 3 },  // layout location 3
-      .binding  { 0 },  // bound buffer 0 (SOA)
-      .format   { VK_FORMAT_R32G32B32_SFLOAT },
-      .offset   { offsetof(VTX_3D_UV_NML_TAN, m_Tan) }
+      3,  // layout location 3
+      0,  // bound buffer 0 (SOA)
+      VK_FORMAT_R32G32B32_SFLOAT,
+      offsetof(VTX_3D_UV_NML_TAN, m_Tan)
     });
     break;
   case vulkanPipeline::E_VERTEX_BINDING_MODE::AOS_XYZ_RGB_F32:
     outPipeline.m_BindingDescription[0].stride = static_cast<uint32_t>(sizeof(VTX_3D_RGB));
     outPipeline.m_AttributeDescription.reserve(2);
     outPipeline.m_AttributeDescription.emplace_back(VkVertexInputAttributeDescription{
-      .location { 0 },  // layout location 0
-      .binding  { 0 },  // bound buffer 0 (SOA)
-      .format   { VK_FORMAT_R32G32B32_SFLOAT },
-      .offset   { 0 }
+      0,  // layout location 0
+      0,  // bound buffer 0 (SOA)
+      VK_FORMAT_R32G32B32_SFLOAT,
+      0
     });
     outPipeline.m_AttributeDescription.emplace_back(VkVertexInputAttributeDescription{
-      .location { 1 },  // layout location 1
-      .binding  { 0 },  // bound buffer 0 (SOA)
-      .format   { VK_FORMAT_R32G32B32_SFLOAT },
-      .offset   { offsetof(VTX_3D_RGB, m_Col) }
+      1,  // layout location 1
+      0,  // bound buffer 0 (SOA)
+      VK_FORMAT_R32G32B32_SFLOAT,
+      offsetof(VTX_3D_RGB, m_Col)
     });
     break;
   case vulkanPipeline::E_VERTEX_BINDING_MODE::AOS_XYZ_RGBA_F32:
     outPipeline.m_BindingDescription[0].stride = static_cast<uint32_t>(sizeof(VTX_3D_RGBA));
     outPipeline.m_AttributeDescription.reserve(2);
     outPipeline.m_AttributeDescription.emplace_back(VkVertexInputAttributeDescription{
-      .location { 0 },  // layout location 0
-      .binding  { 0 },  // bound buffer 0 (SOA)
-      .format   { VK_FORMAT_R32G32B32_SFLOAT },
-      .offset   { 0 }
+      0,  // layout location 0
+      0,  // bound buffer 0 (SOA)
+      VK_FORMAT_R32G32B32_SFLOAT,
+      0
     });
     outPipeline.m_AttributeDescription.emplace_back(VkVertexInputAttributeDescription{
-      .location { 1 },  // layout location 1
-      .binding  { 0 },  // bound buffer 0 (SOA)
-      .format   { VK_FORMAT_R32G32B32A32_SFLOAT },
-      .offset   { offsetof(VTX_3D_RGBA, m_Col) }
+      1,  // layout location 1
+      0,  // bound buffer 0 (SOA)
+      VK_FORMAT_R32G32B32A32_SFLOAT,
+      offsetof(VTX_3D_RGBA, m_Col)
     });
     break;
   default:
     printWarning("UNKNOWN VERTEX BINDING MODE PROVIDED"sv);
     return false;
   }
-  outPipeline.m_VertexInputInfo = VkPipelineVertexInputStateCreateInfo
+  outPipeline.m_VertexInputInfo = VkPipelineVertexInputStateCreateInfo{};
   {
-    .sType{ VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO },
-    .vertexBindingDescriptionCount	{ static_cast<uint32_t>(outPipeline.m_BindingDescription.size()) },
-    .pVertexBindingDescriptions			{ outPipeline.m_BindingDescription.data() },
-    .vertexAttributeDescriptionCount{ static_cast<uint32_t>(outPipeline.m_AttributeDescription.size()) },
-    .pVertexAttributeDescriptions		{ outPipeline.m_AttributeDescription.data() }
+    outPipeline.m_VertexInputInfo.sType = { VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO },
+    outPipeline.m_VertexInputInfo.vertexBindingDescriptionCount   = { static_cast<uint32_t>(outPipeline.m_BindingDescription.size()) },
+    outPipeline.m_VertexInputInfo.pVertexBindingDescriptions      = { outPipeline.m_BindingDescription.data() },
+    outPipeline.m_VertexInputInfo.vertexAttributeDescriptionCount = { static_cast<uint32_t>(outPipeline.m_AttributeDescription.size()) },
+    outPipeline.m_VertexInputInfo.pVertexAttributeDescriptions    = { outPipeline.m_AttributeDescription.data() };
   };
   return true;
 }

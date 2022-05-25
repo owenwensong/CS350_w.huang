@@ -55,7 +55,7 @@ std::string_view VKErrorToString(VkResult errCode) noexcept
 		}
 }
 
-void printVKWarning(VkResult errCode, std::string_view msg, bool isError, std::source_location const& errLoc) noexcept
+void printVKWarning(VkResult errCode, std::string_view msg, bool isError, CPPSL::source_location const& errLoc) noexcept
 {
 		std::cerr << errLoc.file_name()
 							<< '('
@@ -73,7 +73,7 @@ void printVKWarning(VkResult errCode, std::string_view msg, bool isError, std::s
 							<< std::endl;
 }
 
-void printWarning(std::string_view msg, bool isError, std::source_location const& errLoc) noexcept
+void printWarning(std::string_view msg, bool isError, CPPSL::source_location const& errLoc) noexcept
 {
 		std::cerr << errLoc.file_name()
 							<< '('

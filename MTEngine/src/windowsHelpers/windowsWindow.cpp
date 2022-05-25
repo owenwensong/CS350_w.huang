@@ -208,20 +208,20 @@ bool windowsWindow::registerWindowClass() noexcept
     {
         return true;// class has been registered before
     }
-    WNDCLASSEX windowClass
+    WNDCLASSEX windowClass;
     {
-        .cbSize = sizeof(decltype(windowClass)),
-        .style = CS_HREDRAW | CS_VREDRAW,
-        .lpfnWndProc = WHWndProc,
-        .cbClsExtra = 0,
-        .cbWndExtra = 0,
-        .hInstance = hInst,
-        .hIcon = LoadIcon(NULL, IDI_APPLICATION),
-        .hCursor = LoadCursor(NULL, IDC_ARROW),
-        .hbrBackground = static_cast<HBRUSH>(GetStockObject(WHITE_BRUSH)), // vs (HBRUSH)(COLOR_WINDOW+1); ?
-        .lpszMenuName = NULL,
-        .lpszClassName = L"OVKWinClass",
-        .hIconSm = LoadIcon(NULL, IDI_QUESTION)
+      windowClass.cbSize = sizeof(decltype(windowClass));
+      windowClass.style = CS_HREDRAW | CS_VREDRAW;
+      windowClass.lpfnWndProc = WHWndProc;
+      windowClass.cbClsExtra = 0;
+      windowClass.cbWndExtra = 0;
+      windowClass.hInstance = hInst;
+      windowClass.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+      windowClass.hCursor = LoadCursor(NULL, IDC_ARROW);
+      windowClass.hbrBackground = static_cast<HBRUSH>(GetStockObject(WHITE_BRUSH)); // vs (HBRUSH)(COLOR_WINDOW+1); ?
+      windowClass.lpszMenuName = NULL;
+      windowClass.lpszClassName = L"OVKWinClass";
+      windowClass.hIconSm = LoadIcon(NULL, IDI_QUESTION);
     };
 
     return RegisterClassEx(&windowClass) ? true : false;
