@@ -55,15 +55,13 @@ std::string_view VKErrorToString(VkResult errCode) noexcept
 		}
 }
 
-void printVKWarning(VkResult errCode, std::string_view msg, bool isError, CPPSL::source_location const& errLoc) noexcept
+void printVKWarningActual(VkResult errCode, std::string_view msg, const char* cstrFile, long Line, const char* cstrFunc, bool isError) noexcept
 {
-		std::cerr << errLoc.file_name()
+		std::cerr << (cstrFile ? cstrFile : "NO FILE PROVIDED")
 							<< '('
-							<< errLoc.line()
-							<< '/'
-							<< errLoc.column()
+							<< Line
 							<< ") ["sv
-							<< errLoc.function_name()
+							<< (cstrFunc ? cstrFunc : "NO FUNC PROVIDED")
 							<< (isError ? "] ERROR VK"sv : "] WARNING VK"sv)
 							<< static_cast<long long>(errCode)
 							<< " ("sv
@@ -73,15 +71,13 @@ void printVKWarning(VkResult errCode, std::string_view msg, bool isError, CPPSL:
 							<< std::endl;
 }
 
-void printWarning(std::string_view msg, bool isError, CPPSL::source_location const& errLoc) noexcept
+void printWarningActual(std::string_view msg, const char* cstrFile, long Line, const char* cstrFunc, bool isError) noexcept
 {
-		std::cerr << errLoc.file_name()
+		std::cerr << (cstrFile ? cstrFile : "NO FILE PROVIDED")
 							<< '('
-							<< errLoc.line()
-							<< '/'
-							<< errLoc.column()
+							<< Line
 							<< ") ["sv
-							<< errLoc.function_name()
+							<< (cstrFunc ? cstrFunc : "NO FUNC PROVIDED")
 							<< (isError ? "] ERROR: "sv : "] WARNING: "sv)
 							<< msg
 							<< std::endl;

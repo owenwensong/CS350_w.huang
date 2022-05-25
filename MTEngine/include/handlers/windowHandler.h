@@ -38,9 +38,9 @@ public:
     /// @return whether or not the loop should continue
     bool processInputEvents();
 
-    [[nodiscard("Don't throw away my window man")]]
+    _NODISCARD
     std::unique_ptr<vulkanWindow> createWindow(windowSetup const& Setup);
-
+    
     // SHADER MODULES
 
     VkShaderModule createShaderModule(const char* relPath);

@@ -17,7 +17,7 @@ class vulkanInstance
 {
 public:
 
-    static constexpr decltype(VkApplicationInfo::apiVersion) apiVersion{ VK_API_VERSION_1_2 };
+    static constexpr decltype(VkApplicationInfo::apiVersion) apiVersion{ VK_API_VERSION_1_1 };
 
     static VkInstance createVkInstance(bool enableDebugLayers, bool enableRenderDoc);
 

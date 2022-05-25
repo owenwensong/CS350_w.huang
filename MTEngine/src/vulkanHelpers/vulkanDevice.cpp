@@ -45,6 +45,7 @@ std::vector<VkPhysicalDevice> collectPhysicalDevices(vulkanInstance& vkInst)
         {
             retval.erase(retval.begin() + i);// remove by iter
             --i;// don't increment i on next loop since element removed
+            --t;
         }
     }
     
