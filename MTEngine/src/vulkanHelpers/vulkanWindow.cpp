@@ -13,7 +13,7 @@
 #include <iostream> // for wcout
 #include <variant>  // descriptor variants
 #include <vector>
-#include <span>
+//#include <span>
 
 // *****************************************************************************
 // *********************************************** NON CLASS STATIC HELPERS ****

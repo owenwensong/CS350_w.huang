@@ -232,9 +232,9 @@ int main()
   {
     windowHandler::createInstance
     (
-      windowHandler::flagDebugPrint |
-      windowHandler::flagDebugLayer |
-      windowHandler::flagRenderDocLayer
+      windowHandler::flagDebugPrint
+      | windowHandler::flagDebugLayer
+      //| windowHandler::flagRenderDocLayer
     )
   };
   if (pWH == nullptr || !pWH->OK())
