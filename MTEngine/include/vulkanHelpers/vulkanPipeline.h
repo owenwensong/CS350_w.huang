@@ -96,6 +96,8 @@ struct vulkanPipeline
     // will be used directly for pPushConstantRanges, don't move it around.
     VkPushConstantRange m_PushConstantRangeVert{ createPushConstantInfo<>(VK_SHADER_STAGE_VERTEX_BIT) };
     VkPushConstantRange m_PushConstantRangeFrag{ createPushConstantInfo<>(VK_SHADER_STAGE_FRAGMENT_BIT) };
+  
+    VkPolygonMode m_PolygonMode{ VK_POLYGON_MODE_FILL };
   };
 
   // moved in, dangerous... keep track of allocations maybe?

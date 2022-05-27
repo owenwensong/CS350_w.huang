@@ -56,6 +56,7 @@
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <ImportGroup Label="Shared">
+    <Import Project="..\imgui\imgui.vcxitems" Label="Shared" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -64,6 +65,7 @@
     <Import Project="..\prop-pages\includeGLM.props" />
     <Import Project="..\prop-pages\includeAssimp.props" />
     <Import Project="..\prop-pages\includeTinyddsloader.props" />
+    <Import Project="..\prop-pages\includeIMGUISharedDirectories.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -72,6 +74,7 @@
     <Import Project="..\prop-pages\includeGLM.props" />
     <Import Project="..\prop-pages\includeAssimp.props" />
     <Import Project="..\prop-pages\includeTinyddsloader.props" />
+    <Import Project="..\prop-pages\includeIMGUISharedDirectories.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -80,6 +83,7 @@
     <Import Project="..\prop-pages\includeGLM.props" />
     <Import Project="..\prop-pages\includeAssimp.props" />
     <Import Project="..\prop-pages\includeTinyddsloader.props" />
+    <Import Project="..\prop-pages\includeIMGUISharedDirectories.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -88,6 +92,7 @@
     <Import Project="..\prop-pages\includeGLM.props" />
     <Import Project="..\prop-pages\includeAssimp.props" />
     <Import Project="..\prop-pages\includeTinyddsloader.props" />
+    <Import Project="..\prop-pages\includeIMGUISharedDirectories.props" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -167,11 +172,20 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="include\GameStateManager\GameStateBase.h" />
+    <ClInclude Include="include\GameStateManager\GameStateManager.h" />
+    <ClInclude Include="include\GameStateManager\GameStates.h" />
+    <ClInclude Include="include\GameStateManager\GS_Misc.h" />
     <ClInclude Include="include\handlers\windowHandler.h" />
     <ClInclude Include="include\utility\CStrHash.hpp" />
     <ClInclude Include="include\utility\lockableObject.hpp" />
     <ClInclude Include="include\utility\matrixTransforms.h" />
-    <ClInclude Include="include\utility\OBJLoader.h" />
+    <ClInclude Include="include\utility\OBJLoader.h">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="include\utility\Singleton.h" />
     <ClInclude Include="include\utility\Singleton.hpp" />
     <ClInclude Include="include\utility\Timer.h" />
@@ -189,11 +203,18 @@
     <ClInclude Include="include\windowsHelpers\windowsWindow.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\GameStateManager\GameStateManager.cpp" />
+    <ClCompile Include="src\GameStateManager\GS_Misc.cpp" />
     <ClCompile Include="src\handlers\windowHandler.cpp" />
     <ClCompile Include="src\libImplementations\tinyddsloader_Implementation.cpp" />
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\utility\matrixTransforms.cpp" />
-    <ClCompile Include="src\utility\OBJLoader.cpp" />
+    <ClCompile Include="src\utility\OBJLoader.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="src\utility\Timer.cpp" />
     <ClCompile Include="src\vulkanHelpers\printWarnings.cpp" />
     <ClCompile Include="src\vulkanHelpers\vulkanBuffer.cpp" />

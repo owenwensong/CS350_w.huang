@@ -1249,6 +1249,7 @@ void vulkanWindow::PageFlip()
     case VK_SUBOPTIMAL_KHR:
     case VK_ERROR_OUT_OF_DATE_KHR:
       if (CreateOrResizeWindow())break;
+      __fallthrough;
     default:
       printVKWarning(tmpRes, "vkQueuePresentKHR Failed?"sv, true);
       assert(false);
@@ -1416,7 +1417,7 @@ bool vulkanWindow::createPipelineInfo(vulkanPipeline& outPipeline, vulkanPipelin
     outPipeline.m_Rasterizer.sType = { VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO },
     outPipeline.m_Rasterizer.depthClampEnable				 = { VK_FALSE },	// clamp instead of discarding stuff outside the near/far planes
     outPipeline.m_Rasterizer.rasterizerDiscardEnable = { VK_FALSE },
-    outPipeline.m_Rasterizer.polygonMode						 = { VK_POLYGON_MODE_FILL },
+    outPipeline.m_Rasterizer.polygonMode						 = { inSetup.m_PolygonMode },
     outPipeline.m_Rasterizer.cullMode								 = { VK_CULL_MODE_BACK_BIT },	// back face culling
     outPipeline.m_Rasterizer.frontFace							 = { VK_FRONT_FACE_COUNTER_CLOCKWISE },
     outPipeline.m_Rasterizer.depthBiasEnable				 = { VK_FALSE },

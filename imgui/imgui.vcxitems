@@ -1,0 +1,37 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Label="Globals">
+    <MSBuildAllProjects Condition="'$(MSBuildVersion)' == '' Or '$(MSBuildVersion)' &lt; '16.0'">$(MSBuildAllProjects);$(MSBuildThisFileFullPath)</MSBuildAllProjects>
+    <HasSharedItems>true</HasSharedItems>
+    <ItemsProjectGuid>{9ca45857-94b8-4867-8c72-9981c9fb9e5b}</ItemsProjectGuid>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(MSBuildThisFileDirectory)</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ProjectCapability Include="SourceItemsFromImports" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\imconfig.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\imgui.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\imguiHelper.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\imgui_impl_vulkan.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\imgui_impl_win32.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\imgui_internal.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\imstb_rectpack.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\imstb_textedit.h" />
+    <ClInclude Include="$(MSBuildThisFileDirectory)include\imstb_truetype.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="$(MSBuildThisFileDirectory)src\imgui.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)src\imguiHelper.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)src\imgui_demo.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)src\imgui_draw.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)src\imgui_impl_vulkan.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)src\imgui_impl_win32.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)src\imgui_tables.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)src\imgui_widgets.cpp" />
+  </ItemGroup>
+</Project>

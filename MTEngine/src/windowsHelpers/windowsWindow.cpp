@@ -82,8 +82,12 @@ std::tuple<int, int> windowsWindow::getPosition() const
 // *****************************************************************************
 // ***************************************************** WINDOW CLASS STUFF ****
 
+#include <imguiHelper.h>// for imgui wndproc
+IMGUI_WIN32_WNDPROCHANDLER_FORWARD_DECLARATION;
+
 LRESULT CALLBACK WHWndProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) noexcept
 {
+  ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam);
     //GetWindowLongPtr(hWnd, GWLP_USERDATA)
     switch (uMsg)
     {
