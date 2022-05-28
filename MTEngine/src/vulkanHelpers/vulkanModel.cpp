@@ -240,7 +240,7 @@ bool vulkanModel::load3DUVModel(std::string_view const& fPath)
   return true;
 }
 
-bool vulkanModel::load3DModelPositionOnlySolidColor(std::string_view const& fPath, glm::vec3 const& solidColor)
+bool vulkanModel::load3DModelPositionOnly(std::string_view const& fPath)
 {
   assert(m_Buffer_Vertex.m_Buffer == VK_NULL_HANDLE && m_Buffer_Index.m_Buffer == VK_NULL_HANDLE);
   windowHandler* pWH{ windowHandler::getPInstance() };
@@ -262,9 +262,13 @@ bool vulkanModel::load3DModelPositionOnlySolidColor(std::string_view const& fPat
     )
   };
 
-  if (pScene == nullptr || false == pScene->HasMeshes())return false;
+  if (pScene == nullptr || false == pScene->HasMeshes())
+  {
+    printWarning(Importer.GetErrorString(), true);
+    return false;
+  }
 
-  std::vector<VTX_3D_RGB> vertices;
+  std::vector<VTX_3D> vertices;
   std::vector<uint32_t> indices;
 
   { // reserve all the space needed...
@@ -302,7 +306,7 @@ bool vulkanModel::load3DModelPositionOnlySolidColor(std::string_view const& fPat
       //aiVector3D& refNml{ refMesh.mNormals[j] };
       //aiVector3D& refTan{ refMesh.mTangents[j] };
 
-      VTX_3D_RGB& currVertex{ vertices.emplace_back() };
+      VTX_3D& currVertex{ vertices.emplace_back() };
       {
         currVertex.m_Pos.x = refVtx.x;
         currVertex.m_Pos.y = refVtx.y;
@@ -311,7 +315,6 @@ bool vulkanModel::load3DModelPositionOnlySolidColor(std::string_view const& fPat
         //currVertex.m_Nml.x = refNml.x;
         //currVertex.m_Nml.y = refNml.y;
         //currVertex.m_Nml.z = refNml.z;
-        currVertex.m_Col = solidColor;
       };
     }
 

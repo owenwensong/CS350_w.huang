@@ -172,6 +172,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="include\Assignment\Camera.h" />
+    <ClInclude Include="include\Assignment\Geometry.h" />
     <ClInclude Include="include\GameStateManager\GameStateBase.h" />
     <ClInclude Include="include\GameStateManager\GameStateManager.h" />
     <ClInclude Include="include\GameStateManager\GameStates.h" />
@@ -203,6 +205,8 @@
     <ClInclude Include="include\windowsHelpers\windowsWindow.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="src\Assignment\Camera.cpp" />
+    <ClCompile Include="src\Assignment\Geometry.cpp" />
     <ClCompile Include="src\GameStateManager\GameStateManager.cpp" />
     <ClCompile Include="src\GameStateManager\GS_Misc.cpp" />
     <ClCompile Include="src\handlers\windowHandler.cpp" />

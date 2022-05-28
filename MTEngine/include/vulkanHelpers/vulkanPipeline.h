@@ -64,6 +64,7 @@ struct vulkanPipeline
     AOS_XY_UV_F32,
     AOS_XY_RGB_F32,
     AOS_XY_RGBA_F32,
+    AOS_XYZ_F32,
     AOS_XYZ_UV_F32,
     AOS_XYZ_UV_NML_TAN_F32,
     AOS_XYZ_RGB_F32,

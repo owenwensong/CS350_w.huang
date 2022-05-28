@@ -46,6 +46,12 @@
     <Filter Include="Source Files\GameStateManager">
       <UniqueIdentifier>{a6cbecb3-2f70-4f51-b1cf-7df5bd992971}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Assignment">
+      <UniqueIdentifier>{6fe9bd59-6846-427f-b5e7-7f03d0bff8d6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Assignment">
+      <UniqueIdentifier>{d08647f4-07e2-4e59-aa21-b1cb107d246e}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="include\handlers\windowHandler.h">
@@ -120,6 +126,12 @@
     <ClInclude Include="include\GameStateManager\GS_Misc.h">
       <Filter>Header Files\GameStateManager</Filter>
     </ClInclude>
+    <ClInclude Include="include\Assignment\Geometry.h">
+      <Filter>Header Files\Assignment</Filter>
+    </ClInclude>
+    <ClInclude Include="include\Assignment\Camera.h">
+      <Filter>Header Files\Assignment</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\handlers\windowHandler.cpp">
@@ -172,6 +184,12 @@
     </ClCompile>
     <ClCompile Include="src\utility\OBJLoader.cpp">
       <Filter>Source Files\Utility</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Assignment\Geometry.cpp">
+      <Filter>Source Files\Assignment</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Assignment\Camera.cpp">
+      <Filter>Source Files\Assignment</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

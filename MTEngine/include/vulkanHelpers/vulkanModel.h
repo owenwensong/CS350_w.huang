@@ -30,7 +30,7 @@ struct vulkanModel
   void (vulkanModel::* m_pFnDraw)(VkCommandBuffer) { &vulkanModel::drawInit };
 
   bool load3DUVModel(std::string_view const&);
-  bool load3DModelPositionOnlySolidColor(std::string_view const&, glm::vec3 const& solidColor = glm::vec3{ 1.0f, 1.0f, 1.0f });
+  bool load3DModelPositionOnly(std::string_view const&);
   void destroyModel();
 
 };

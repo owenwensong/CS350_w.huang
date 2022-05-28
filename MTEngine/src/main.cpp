@@ -27,8 +27,8 @@ int main()
     windowHandler::createInstance
     (
       windowHandler::flagDebugPrint
-      | windowHandler::flagDebugLayer
-      | windowHandler::flagRenderDocLayer
+      //| windowHandler::flagDebugLayer
+      //| windowHandler::flagRenderDocLayer
     )
   };
   if (pWH == nullptr || !pWH->OK())
@@ -38,7 +38,7 @@ int main()
   }
 
   {
-    MTU::GameStateManager GSM{ windowSetup{ 1280, 720, false, true, false, 0.0f, 0.0f , 0.0f, 1.0f , L"CSD2150 Final Project | Owen Huang Wensong"sv } };
+    MTU::GameStateManager GSM{ windowSetup{ 1280, 720, false, true, false, 0.0f, 0.0f , 0.0f, 1.0f , L"CS350 Assignment 1 | Owen Huang Wensong"sv } };
     GSM.setNextGameState(MTU::GS::E_MISC);
     GSM.initImgui();
     GSM.Run();

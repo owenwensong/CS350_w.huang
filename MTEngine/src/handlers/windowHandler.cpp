@@ -58,8 +58,8 @@ bool windowHandler::OK() const noexcept
 }
 
 bool windowHandler::processInputEvents()
-{
-  for (MSG msg; PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE); DispatchMessage(&msg))
+{ // translating message for imgui to take string inputs. Else I wouldn't have done it.
+  for (MSG msg; PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE); TranslateMessage(&msg), DispatchMessage(&msg))
   {
     if (msg.message == WM_QUIT)return false;
   }
@@ -389,6 +389,16 @@ bool windowHandler::setupVertexInputInfo(vulkanPipeline& outPipeline, vulkanPipe
       VK_FORMAT_R32G32B32A32_SFLOAT,
       offsetof(VTX_2D_RGBA, m_Col)
     });
+    break;
+  case vulkanPipeline::E_VERTEX_BINDING_MODE::AOS_XYZ_F32:
+    outPipeline.m_BindingDescription[0].stride = static_cast<uint32_t>(sizeof(VTX_3D));
+    outPipeline.m_AttributeDescription.reserve(1);
+    outPipeline.m_AttributeDescription.emplace_back(VkVertexInputAttributeDescription{
+      0,  // layout location 0
+      0,  // bound buffer 0 (SOA)
+      VK_FORMAT_R32G32B32_SFLOAT,
+      0
+      });
     break;
   case vulkanPipeline::E_VERTEX_BINDING_MODE::AOS_XYZ_UV_F32:
     outPipeline.m_BindingDescription[0].stride = static_cast<uint32_t>(sizeof(VTX_3D_UV));

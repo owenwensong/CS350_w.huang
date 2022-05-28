@@ -12,33 +12,11 @@
 
 #include <GameStateManager/GameStateBase.h>
 
+#include <Assignment/Camera.h>
 #include <vulkanHelpers/vulkanModel.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <utility/matrixTransforms.h>
 #include <vulkanHelpers/vulkanModel.h>
-
-struct originCamera   // struct just for this implementation always facing origin
-{                     // todo: change to freecam
-  float     m_AspectRatio;
-  float     m_Dist;
-  glm::vec3 m_Pos;
-  glm::vec2 m_Rot;
-
-  glm::mat4 m_LookMat;
-  glm::mat4 m_W2V;
-
-  glm::ivec2 m_CursorPrev;
-
-  static constexpr glm::vec2 s_DistLimits{ 0.25f, 25.0f };
-  static constexpr float s_ScrollSpeedMul{ 0.125f };
-  static constexpr float s_CamFOV{ glm::radians(75.0f) };
-  static constexpr float s_Near{ 0.0625f };
-  static constexpr float s_Far{ s_DistLimits.y * 1.5f };
-  static const float s_RotYMin;
-  static const float s_RotYMax;
-  static const glm::vec3 s_Tgt;
-  static const glm::vec3 s_Up;
-};
 
 namespace MTU
 {
@@ -62,9 +40,12 @@ namespace MTU
   private:
     windowsInput& inputs;
 
-    originCamera  m_Cam;
+    Camera m_Cam;
+    float  m_CamMoveSpeed;
+    float  m_CamFastModifier;
     
-    std::array<vulkanModel, 1>    m_Models;
+    std::array<glm::vec3, 4>      m_Positions;
+    std::array<vulkanModel, 3>    m_Models;
     std::array<vulkanPipeline, 1> m_Pipelines;
   };
 }

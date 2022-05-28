@@ -116,7 +116,7 @@ void MTU::GameStateManager::Run()
 
       
     }
-
+    m_VKWindow->m_Device->waitForDeviceIdle();
     upGS->Free();
 
   }
