@@ -88,11 +88,11 @@ namespace MTG
     float   m_Radius;
   };
 
-  struct AABB
+  union AABB
   {
     AABB() = default;
-    AABB(Point3D const& inCenter, Vector3D inHalfExtents) : 
-      m_Center{ inCenter }, m_HalfExtents{ inHalfExtents }
+    AABB(Point3D const& inMin, Point3D inMax) : 
+      m_Min{ inMin }, m_Max{ inMax }
     {
 
     }
@@ -100,22 +100,21 @@ namespace MTG
     AABB(AABB const&) = default;
     AABB(AABB&&) = default;
 
-    AABB createFromMinMax(Point3D inMin, Point3D inMax)
+    static inline AABB createFromCenterAndHalfExtents(Point3D inCenter, Vector3D inHalfExtents)
     {
-      AABB retval{ inMin, 0.5f * (inMax - inMin) };
-      retval.m_Center += retval.m_HalfExtents;
-      return retval; // hoping for NRVO
+      return AABB{ inCenter - inHalfExtents, inCenter + inHalfExtents };
     }
 
-    Point3D   m_Center;
-    Vector3D  m_HalfExtents;
+#pragma warning(suppress: 4201)// unnamed struct, exactly what I want.
+    struct { Point3D m_Min, m_Max; };
+    Point3D m_Bounds[2];// 0 min, 1 max
   };
 
   struct Ray
   {
     Ray() = default;
     Ray(Point3D const& inPoint, Vector3D inDirection) : 
-      m_Point{ inPoint }, m_Direction{ glm::normalize(inDirection) }
+      m_Point{ inPoint }, m_Direction{ inDirection }
     {
 
     }
@@ -127,38 +126,24 @@ namespace MTG
     Vector3D  m_Direction;
   };
 
-  bool TestSphereSphere(Sphere const&, Sphere const&);
-
-  //bool TestAABBSphere
-  //bool TestSphereAABB
-
+  bool intersectionSphereSphere(Sphere const&, Sphere const&);
+  bool intersectionSphereAABB(Sphere const&, AABB const&);
   bool intersectionAABBAABB(AABB const&, AABB const&);
 
   bool intersectionPointSphere(Point3D const&, Sphere const&);
-
   bool intersectionPointAABB(Point3D const&, AABB const&);
-
-  //bool TestPointTriangle(Point3D const&, Triangle const&);
-
+  bool intersectionPointTriangle(Point3D const&, Triangle const&, Vector3D& outBarycentric);
   // -1 Outside half plane, 0 Coplanar to plane, 1 Inside half plane
   int cmpPointPlane(Point3D const&, Plane const&, float inEpsilon = FLT_EPSILON);
-  void TestPointPlane(Point3D const&, Plane const&, float inEpsilon = FLT_EPSILON);
 
   bool intersectionRayPlane(Ray const&, Plane const&, float& outTime);
-  void TestRayPlane(Ray const&, Plane const&);
-
-  // doesn't work
   bool intersectionRayAABB(Ray const&, AABB const&, float& outTime);
-  void TestRayAabb(Ray const&, AABB const&);// why is it only one capital
+  bool intersectionRaySphere(Ray const&, Sphere const&, float& outTime);
+  bool intersectionRayTriangle(Ray const&, Triangle const&, float& outTime);
 
-  // doesn't work
-  bool intersectionRaySphere(Ray const&, Sphere const&, float& outTime0, float& outTime1);
-  void TestRaySphere(Ray const&, Sphere const&);
-
-  // Too damn tired to get anything to work...
-
-  void test();
-
+  // -1 Outside half plane, 0 overlaps 1 Outside half plane
+  int intersectionPlaneAABB(Plane const&, AABB const&);
+  int intersectionPlaneSphere(Plane const&, Sphere const&);
 }
 
 #endif//ASSIGNMENT_GEOMETRY_HEADER_GUARD

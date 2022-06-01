@@ -14,5 +14,6 @@ void main()
   vec4 tempVec = pc_W2V * vec4(a_Pos, 1.0);
   gl_Position = tempVec;
   
-  v_Col = 5 * tempVec.zzz;
+  float multiplier = min(5 * tempVec.z, 1.0);
+  v_Col = vec3(multiplier, multiplier, multiplier);
 }

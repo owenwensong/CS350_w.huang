@@ -132,6 +132,9 @@
     <ClInclude Include="include\Assignment\Camera.h">
       <Filter>Header Files\Assignment</Filter>
     </ClInclude>
+    <ClInclude Include="include\Assignment\GeometryTests.h">
+      <Filter>Header Files\Assignment</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\handlers\windowHandler.cpp">
@@ -189,6 +192,9 @@
       <Filter>Source Files\Assignment</Filter>
     </ClCompile>
     <ClCompile Include="src\Assignment\Camera.cpp">
+      <Filter>Source Files\Assignment</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Assignment\GeometryTests.cpp">
       <Filter>Source Files\Assignment</Filter>
     </ClCompile>
   </ItemGroup>
