@@ -12,13 +12,13 @@
 #include <string>
 
 #define TESTEXAMPLE_SPHERE_SPHERE   0 // confirmed good (:
-#define TESTEXAMPLE_AABB_SPHERE     0 // no tests? test graphically later
-#define TESTEXAMPLE_SPHERE_AABB     0 // no tests? test graphically later
+#define TESTEXAMPLE_AABB_SPHERE     0 // confirmed good (: (graphically)
+#define TESTEXAMPLE_SPHERE_AABB     0 // confirmed good (: (graphically)
 #define TESTEXAMPLE_AABB_AABB       0 // confirmed good (:
 
 #define TESTEXAMPLE_POINT_SPHERE    0 // confirmed good (:
 #define TESTEXAMPLE_POINT_AABB      0 // confirmed good (:
-#define TESTEXAMPLE_POINT_TRIANGLE  0 // 5,62 off, 63,64 weird. Waiting on teams
+#define TESTEXAMPLE_POINT_TRIANGLE  0 // 5,62,63,64 weird. Waiting on teams reply
 #define TESTEXAMPLE_POINT_PLANE     0 // confirmed good (:
 
 #define TESTEXAMPLE_RAY_PLANE       0 // confirmed good (:
