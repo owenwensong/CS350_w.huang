@@ -14,7 +14,7 @@
 #define TESTEXAMPLE_SPHERE_SPHERE   0 // confirmed good (:
 #define TESTEXAMPLE_AABB_SPHERE     0 // confirmed good (: (graphically)
 #define TESTEXAMPLE_SPHERE_AABB     0 // confirmed good (: (graphically)
-#define TESTEXAMPLE_AABB_AABB       0 // confirmed good (:
+#define TESTEXAMPLE_AABB_AABB       1 // confirmed good (:
 
 #define TESTEXAMPLE_POINT_SPHERE    0 // confirmed good (:
 #define TESTEXAMPLE_POINT_AABB      0 // confirmed good (:
