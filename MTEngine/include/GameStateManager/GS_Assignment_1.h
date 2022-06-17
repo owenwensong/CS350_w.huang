@@ -16,7 +16,6 @@
 #include <vulkanHelpers/vulkanModel.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <utility/matrixTransforms.h>
-#include <vulkanHelpers/vulkanModel.h>
 
 namespace MTU
 {

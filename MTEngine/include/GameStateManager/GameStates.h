@@ -18,6 +18,7 @@ namespace MTU
   {
     E_FIRST = 0,
     E_ASSIGNMENT_1 = E_FIRST,
+    E_ASSIGNMENT_2,
 
     E_NUM_GAMESTATES,
     E_RESTART,

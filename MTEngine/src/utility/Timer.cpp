@@ -13,14 +13,14 @@ MTU::Timer::Timer() :
   tpStart{ /* default is epoch? */ },
   elapsed{ 0 }
 {
-
+  static_assert(MTU::Timer::clockFrequency > 0, "Clock frequency less than or equal to 0?");
 }
 
 MTU::Timer::Timer(MTU::Timer::tp const& _forcedStartTime) :
   tpStart{ _forcedStartTime },
   elapsed{ 0 }
 {
-
+  static_assert(MTU::Timer::clockFrequency > 0, "Clock frequency less than or equal to 0?");
 }
 
 void MTU::Timer::start()

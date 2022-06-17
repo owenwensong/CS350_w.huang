@@ -39,7 +39,7 @@ int main()
 
   {
     MTU::GameStateManager GSM{ windowSetup{ 1280, 720, false, true, false, 0.0f, 0.0f , 0.0f, 1.0f , L"CS350 Assignment 1 | Owen Huang Wensong"sv } };
-    GSM.setNextGameState(MTU::GS::E_ASSIGNMENT_1);
+    GSM.setNextGameState(MTU::GS::E_ASSIGNMENT_2);
     GSM.initImgui();
     GSM.Run();
   }

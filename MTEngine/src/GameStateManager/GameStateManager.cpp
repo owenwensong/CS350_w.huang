@@ -10,7 +10,6 @@
 
 #include <memory>
 #include <vulkanHelpers/printWarnings.h>
-#include <GameStateManager/GameStateBase.h>
 #include <GameStateManager/GameStateManager.h>
 
 #include <imguiHelper.h>
@@ -19,17 +18,23 @@ bool MTU::GameStateManager::s_bImGuiInUse{ false };
 // *****************************************************************************
 // ************************************************************* GameStates ****
 
+#include <GameStateManager/GameStateBase.h>
 #include <GameStateManager/GS_Assignment_1.h>
+#include <GameStateManager/GS_Assignment_2.h>
 
 // return value is whether it should continue
 bool updateGameState(MTU::GameStateManager& rGSM, std::unique_ptr<MTU::GameState>& upGS, MTU::GS nextGS)
 {
   switch (nextGS)
   {
+#define RC_HELPER(a) reinterpret_cast<MTU::GameState*>(a)
   case MTU::GS::E_ASSIGNMENT_1:
-    upGS.reset(new MTU::GS_Assignment_1{ rGSM });
+    upGS.reset(RC_HELPER(new MTU::GS_Assignment_1{ rGSM }));
     return true;
-
+  case MTU::GS::E_ASSIGNMENT_2:
+    upGS.reset(RC_HELPER(new MTU::GS_Assignment_2{ rGSM }));
+    return true;
+#undef RC_HELPER
   default:
     printWarning("Unknown GameState enum provided"sv, true);
     __fallthrough;

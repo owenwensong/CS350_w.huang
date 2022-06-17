@@ -12,6 +12,13 @@
 
 #include <GameStateManager/GameStateManager.h>
 
+#if defined(DEBUG) || defined(_DEBUG)
+#include <cstdio>
+#define GS_PRINT_FUNCSIG(...) printf_s("GAMESTATE FUNCTION: %s\n", __FUNCSIG__)
+#else
+#define GS_PRINT_FUNCSIG(...) 
+#endif// DEBUG
+
 namespace MTU
 {
   // Quick and dirty GameState class for CS350

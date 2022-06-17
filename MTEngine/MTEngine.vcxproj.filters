@@ -138,6 +138,9 @@
     <ClInclude Include="include\GameStateManager\GS_Assignment_2.h">
       <Filter>Header Files\GameStateManager</Filter>
     </ClInclude>
+    <ClInclude Include="include\utility\ThreadTask.h">
+      <Filter>Header Files\Utility</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\handlers\windowHandler.cpp">
@@ -202,6 +205,9 @@
     </ClCompile>
     <ClCompile Include="src\GameStateManager\GS_Assignment_2.cpp">
       <Filter>Source Files\GameStateManager</Filter>
+    </ClCompile>
+    <ClCompile Include="src\utility\ThreadTask.cpp">
+      <Filter>Source Files\Utility</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

@@ -9,6 +9,7 @@
 
 #include <imgui.h>
 #include <iostream>
+#include <utility/ThreadTask.h>
 #include <Assignment/Geometry.h>
 #include <Assignment/GeometryTests.h>
 #include <GameStateManager/GS_Assignment_1.h>
@@ -65,7 +66,10 @@ MTU::GS_Assignment_1::GS_Assignment_1(GameStateManager& rGSM) :
   m_Models{  },
   m_Pipelines{  }
 {
-  std::cout << __FUNCSIG__ << std::endl;
+  GS_PRINT_FUNCSIG();
+
+  bool shouldStopTaskLoading{ false };
+  MTU::ThreadTask isLoadingTask{ MTU::taskLoading, &shouldStopTaskLoading };
 
   // Load models
 
@@ -124,11 +128,21 @@ MTU::GS_Assignment_1::GS_Assignment_1(GameStateManager& rGSM) :
     }
   }
 
+  shouldStopTaskLoading = true;
+  for (MTU::Timer lazyTimer{ MTU::Timer::getCurrentTP() }; false == isLoadingTask.isDone(); lazyTimer.stop())
+  { // Error if 1s goes by after the loading finishes but thread doesn't end
+    if (lazyTimer.getElapsedCount() / MTU::Timer::clockFrequency)
+    {
+      printf_s("Something has gone wrong! Attempting to continue...\n");
+      break;
+    }
+  }
+
 }
 
 void MTU::GS_Assignment_1::Init()
 {
-  std::cout << __FUNCSIG__ << std::endl;
+  GS_PRINT_FUNCSIG();
   m_Cam.m_AspectRatio = static_cast<float>(GSM.getVKWin()->m_windowsWindow.getWidth()) / GSM.getVKWin()->m_windowsWindow.getHeight();
   m_Cam.m_FOV = glm::radians(75.0f);
   // default constructed sensitivity
@@ -154,7 +168,8 @@ void MTU::GS_Assignment_1::Init()
 
 void MTU::GS_Assignment_1::Update(uint64_t dt)
 {
-  static_assert(MTU::Timer::clockFrequency > 0, "Clock frequency less than or equal to 0?");
+  if (inputs.isTriggered(VK_F1))GSM.setNextGameState(GS::E_RESTART);
+  else if (inputs.isTriggered(VK_F2))GSM.setNextGameState(GS::E_ASSIGNMENT_2);
   constexpr float reciprocalFrequency{ 1.0f / MTU::Timer::clockFrequency };
   float fdt{ dt * reciprocalFrequency };
   // ***************************************************************************
@@ -311,14 +326,15 @@ void MTU::GS_Assignment_1::Draw()
 
 void MTU::GS_Assignment_1::Free()
 {
-  std::cout << __FUNCSIG__ << std::endl;
+  GS_PRINT_FUNCSIG();
 }
 
 MTU::GS_Assignment_1::~GS_Assignment_1()
 {
-  std::cout << __FUNCSIG__ << std::endl;
+  GS_PRINT_FUNCSIG();
   for (auto& x : m_Pipelines)GSM.getVKWin()->destroyPipelineInfo(x);
   for (auto& x : m_Models)x.destroyModel();
+  for (auto& x : m_DebugModels)x.destroyModel();
 }
 
 // *****************************************************************************
