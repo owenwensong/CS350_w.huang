@@ -1,8 +1,8 @@
 /*!*****************************************************************************
- * @file    GS_Misc.cpp
+ * @file    GS_Assignment_1.cpp
  * @author  Owen Huang Wensong  [390008220]  (w.huang@digipen.edu)
  * @date    26 MAY 2022
- * @brief   QOL GameState misc class
+ * @brief   Gamestate for assignment 1
  *
  * Copyright (C) 2022 DigiPen Institute of Technology. All rights reserved.
 *******************************************************************************/
@@ -11,7 +11,7 @@
 #include <iostream>
 #include <Assignment/Geometry.h>
 #include <Assignment/GeometryTests.h>
-#include <GameStateManager/GS_Misc.h>
+#include <GameStateManager/GS_Assignment_1.h>
 
 enum enumCollisionTests
 {
@@ -52,7 +52,7 @@ static const std::array<const char*, E_NUM_TESTS> s_CollisionTestStringLiterals
 
 // *****************************************************************************
 
-MTU::GS_Misc::GS_Misc(GameStateManager& rGSM) : 
+MTU::GS_Assignment_1::GS_Assignment_1(GameStateManager& rGSM) : 
   GameState{ rGSM },
   inputs{ rGSM.getInput() },
   m_Cam{  },
@@ -109,8 +109,8 @@ MTU::GS_Misc::GS_Misc(GameStateManager& rGSM) :
     {
       vulkanPipeline::setup pipelineSetup{ };
       pipelineSetup.m_VertexBindingMode = vulkanPipeline::E_VERTEX_BINDING_MODE::AOS_XYZ_F32;
-      pipelineSetup.m_PathShaderVert = "../Assets/Shaders/vertBasic.spv";
-      pipelineSetup.m_PathShaderFrag = "../Assets/Shaders/fragBasic.spv";
+      pipelineSetup.m_PathShaderVert = "../Assets/Shaders/vert_Wireframe_Ass1.spv";
+      pipelineSetup.m_PathShaderFrag = "../Assets/Shaders/frag_Wireframe_Ass1.spv";
       //pipelineSetup.m_UniformsVert
       pipelineSetup.m_UniformsFrag = vulkanPipeline::createUniformInfo<glm::vec3>();
       pipelineSetup.m_PushConstantRangeVert = vulkanPipeline::createPushConstantInfo<glm::mat4>(VK_SHADER_STAGE_VERTEX_BIT);
@@ -126,7 +126,7 @@ MTU::GS_Misc::GS_Misc(GameStateManager& rGSM) :
 
 }
 
-void MTU::GS_Misc::Init()
+void MTU::GS_Assignment_1::Init()
 {
   std::cout << __FUNCSIG__ << std::endl;
   m_Cam.m_AspectRatio = static_cast<float>(GSM.getVKWin()->m_windowsWindow.getWidth()) / GSM.getVKWin()->m_windowsWindow.getHeight();
@@ -152,7 +152,7 @@ void MTU::GS_Misc::Init()
   changeCurrentTest(E_Sphere_Sphere);
 }
 
-void MTU::GS_Misc::Update(uint64_t dt)
+void MTU::GS_Assignment_1::Update(uint64_t dt)
 {
   static_assert(MTU::Timer::clockFrequency > 0, "Clock frequency less than or equal to 0?");
   constexpr float reciprocalFrequency{ 1.0f / MTU::Timer::clockFrequency };
@@ -283,7 +283,7 @@ void MTU::GS_Misc::Update(uint64_t dt)
   // ***************************************************************************
 }
 
-void MTU::GS_Misc::Draw()
+void MTU::GS_Assignment_1::Draw()
 {
   VkCommandBuffer FCB{ GSM.getFCB() };
   if (FCB == VK_NULL_HANDLE)return;
@@ -309,12 +309,12 @@ void MTU::GS_Misc::Draw()
   }
 }
 
-void MTU::GS_Misc::Free()
+void MTU::GS_Assignment_1::Free()
 {
   std::cout << __FUNCSIG__ << std::endl;
 }
 
-MTU::GS_Misc::~GS_Misc()
+MTU::GS_Assignment_1::~GS_Assignment_1()
 {
   std::cout << __FUNCSIG__ << std::endl;
   for (auto& x : m_Pipelines)GSM.getVKWin()->destroyPipelineInfo(x);
@@ -324,7 +324,7 @@ MTU::GS_Misc::~GS_Misc()
 // *****************************************************************************
 // ******************************************************* hard coded tests ****
 
-void MTU::GS_Misc::changeCurrentTest(unsigned nextTest)
+void MTU::GS_Assignment_1::changeCurrentTest(unsigned nextTest)
 {
   assert(nextTest < E_NUM_TESTS);
   m_CurrentTest = nextTest;
@@ -345,7 +345,7 @@ void MTU::GS_Misc::changeCurrentTest(unsigned nextTest)
 
 }
 
-void MTU::GS_Misc::updateM2WSphere(objectInfo& toUpdate)
+void MTU::GS_Assignment_1::updateM2WSphere(objectInfo& toUpdate)
 {
   float radius{ 2.0f * toUpdate.m_Scale.x };// the model I made has a diameter of 1
   toUpdate.m_M2W = glm::mat4
@@ -357,7 +357,7 @@ void MTU::GS_Misc::updateM2WSphere(objectInfo& toUpdate)
   };
 }
 
-void MTU::GS_Misc::updateM2WAABB(objectInfo& toUpdate)
+void MTU::GS_Assignment_1::updateM2WAABB(objectInfo& toUpdate)
 { // multiplied by two because half extents
   toUpdate.m_M2W = glm::mat4
   {
@@ -368,12 +368,12 @@ void MTU::GS_Misc::updateM2WAABB(objectInfo& toUpdate)
   };
 }
 
-void MTU::GS_Misc::updateM2WPoint(objectInfo& toUpdate)
+void MTU::GS_Assignment_1::updateM2WPoint(objectInfo& toUpdate)
 {
   toUpdate.m_M2W = glm::translate(glm::identity<glm::mat4>(), toUpdate.m_Position);
 }
 
-bool MTU::GS_Misc::updateSwitch()
+bool MTU::GS_Assignment_1::updateSwitch()
 {
   switch (m_CurrentTest)
   {
@@ -406,7 +406,7 @@ bool MTU::GS_Misc::updateSwitch()
   }
 }
 
-void MTU::GS_Misc::imguiSwitch()
+void MTU::GS_Assignment_1::imguiSwitch()
 {
   ImGui::DragFloat3("obj0 position", &m_CollisionObjects[0].m_Position.x, 0.0625f, -1250.0f, 1250.0f);
   ImGui::DragFloat3("obj1 position", &m_CollisionObjects[1].m_Position.x, 0.0625f, -1250.0f, 1250.0f);
@@ -440,7 +440,7 @@ void MTU::GS_Misc::imguiSwitch()
   }
 }
 
-void MTU::GS_Misc::drawSwitch(VkCommandBuffer FCB, vulkanPipeline& inPipeline)
+void MTU::GS_Assignment_1::drawSwitch(VkCommandBuffer FCB, vulkanPipeline& inPipeline)
 {
 
   std::array xforms

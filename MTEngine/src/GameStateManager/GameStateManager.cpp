@@ -19,15 +19,15 @@ bool MTU::GameStateManager::s_bImGuiInUse{ false };
 // *****************************************************************************
 // ************************************************************* GameStates ****
 
-#include <GameStateManager/GS_Misc.h>
+#include <GameStateManager/GS_Assignment_1.h>
 
 // return value is whether it should continue
 bool updateGameState(MTU::GameStateManager& rGSM, std::unique_ptr<MTU::GameState>& upGS, MTU::GS nextGS)
 {
   switch (nextGS)
   {
-  case MTU::GS::E_MISC:
-    upGS.reset(new MTU::GS_Misc{ rGSM });
+  case MTU::GS::E_ASSIGNMENT_1:
+    upGS.reset(new MTU::GS_Assignment_1{ rGSM });
     return true;
 
   default:

@@ -123,7 +123,7 @@
     <ClInclude Include="include\GameStateManager\GameStates.h">
       <Filter>Header Files\GameStateManager</Filter>
     </ClInclude>
-    <ClInclude Include="include\GameStateManager\GS_Misc.h">
+    <ClInclude Include="include\GameStateManager\GS_Assignment_1.h">
       <Filter>Header Files\GameStateManager</Filter>
     </ClInclude>
     <ClInclude Include="include\Assignment\Geometry.h">
@@ -182,7 +182,7 @@
     <ClCompile Include="src\GameStateManager\GameStateManager.cpp">
       <Filter>Source Files\GameStateManager</Filter>
     </ClCompile>
-    <ClCompile Include="src\GameStateManager\GS_Misc.cpp">
+    <ClCompile Include="src\GameStateManager\GS_Assignment_1.cpp">
       <Filter>Source Files\GameStateManager</Filter>
     </ClCompile>
     <ClCompile Include="src\utility\OBJLoader.cpp">

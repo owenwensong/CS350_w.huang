@@ -17,7 +17,7 @@ namespace MTU
   enum class GS
   {
     E_FIRST = 0,
-    E_MISC = E_FIRST,
+    E_ASSIGNMENT_1 = E_FIRST,
 
     E_NUM_GAMESTATES,
     E_RESTART,

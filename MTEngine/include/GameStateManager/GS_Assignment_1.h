@@ -1,8 +1,8 @@
 /*!*****************************************************************************
- * @file    GS_Misc.h
+ * @file    GS_Assignment_1.h
  * @author  Owen Huang Wensong  [390008220]  (w.huang@digipen.edu)
  * @date    26 MAY 2022
- * @brief   QOL GameState misc class
+ * @brief   Gamestate for assignment 1
  *
  * Copyright (C) 2022 DigiPen Institute of Technology. All rights reserved.
 *******************************************************************************/
@@ -20,14 +20,14 @@
 
 namespace MTU
 {
-  // Quick and dirty GameState class for CS350
-  class GS_Misc : public GameState
+  // Quick and dirty GameState class for CS350 assignment 1
+  class GS_Assignment_1 : public GameState
   {
   public:
 
     // Constructor will act as Load
 
-    GS_Misc(GameStateManager& rGSM);
+    GS_Assignment_1(GameStateManager& rGSM);
 
     virtual void Init() override;
     virtual void Update(uint64_t dt) override;
@@ -35,7 +35,7 @@ namespace MTU
     virtual void Free() override;
 
     // Destructor will act as Unload
-    virtual ~GS_Misc();
+    virtual ~GS_Assignment_1();
 
   private:
 
