@@ -135,6 +135,9 @@
     <ClInclude Include="include\Assignment\GeometryTests.h">
       <Filter>Header Files\Assignment</Filter>
     </ClInclude>
+    <ClInclude Include="include\GameStateManager\GS_Assignment_2.h">
+      <Filter>Header Files\GameStateManager</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\handlers\windowHandler.cpp">
@@ -196,6 +199,9 @@
     </ClCompile>
     <ClCompile Include="src\Assignment\GeometryTests.cpp">
       <Filter>Source Files\Assignment</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GameStateManager\GS_Assignment_2.cpp">
+      <Filter>Source Files\GameStateManager</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

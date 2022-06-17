@@ -7,8 +7,8 @@
  * Copyright (C) 2022 DigiPen Institute of Technology. All rights reserved.
 *******************************************************************************/
 
-#ifndef GAMESTATE_MISC_HEADER_GUARD
-#define GAMESTATE_MISC_HEADER_GUARD
+#ifndef GAMESTATE_ASSIGNMENT_1_HEADER_GUARD
+#define GAMESTATE_ASSIGNMENT_1_HEADER_GUARD
 
 #include <GameStateManager/GameStateBase.h>
 
@@ -74,4 +74,4 @@ namespace MTU
   };
 }
 
-#endif//GAMESTATE_MISC_HEADER_GUARD
+#endif//GAMESTATE_ASSIGNMENT_1_HEADER_GUARD
