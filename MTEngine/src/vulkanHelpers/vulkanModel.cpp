@@ -466,7 +466,6 @@ bool vulkanModel::load3DNmlModel(std::string_view const& fPath)
     {
       aiVector3D& refVtx{ refMesh.mVertices[j] };
       aiVector3D& refNml{ refMesh.mNormals[j] };
-      aiVector3D& refTan{ refMesh.mTangents[j] };
 
       VTX_3D_RGB& currVertex{ vertices.emplace_back() };
       {
