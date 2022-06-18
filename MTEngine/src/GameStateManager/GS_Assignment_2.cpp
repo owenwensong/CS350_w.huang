@@ -19,6 +19,7 @@
 enum enumAss2Pipelines
 {
   E_PIPELINE_WIREFRAME = 0,
+  E_PIPELINE_BASICLIGHT,
 
   E_NUM_PIPELINES
 };
@@ -32,16 +33,26 @@ enum enumAss2DebugModels
   E_NUM_DEBUGMODELS
 };
 
+enum enumAss2Models
+{
+  E_MODEL_BUNNY = 0,
+  E_MODEL_LUCY_PRINCETON,
+  
+  E_NUM_MODELS
+};
+
 // *****************************************************************************
 
 MTU::GS_Assignment_2::GS_Assignment_2(GameStateManager& rGSM) :
   GameState{ rGSM },
   inputs{ rGSM.getInput() },
   m_Cam{  },
+  m_LightColor{  },
   m_CamMoveSpeed{  },
   m_CamFastModifier{  },
   m_Pipelines{  },
-  m_DebugModels{  }
+  m_DebugModels{  },
+  m_Models{  }
 {
   GS_PRINT_FUNCSIG();
 
@@ -51,7 +62,7 @@ MTU::GS_Assignment_2::GS_Assignment_2(GameStateManager& rGSM) :
   // ***************************************************************************
   // ************************************************************** LOADING ****
 
-  // Load models
+  // Load debug models
   {
     if (false == m_DebugModels[E_DEBUGMODEL_SPHERE].load3DModelPositionOnly("../Assets/Meshes/DebugMeshes/normalIcoSphere.obj"))
     {
@@ -67,21 +78,48 @@ MTU::GS_Assignment_2::GS_Assignment_2(GameStateManager& rGSM) :
     }
   }
 
+  // Load models
+  {
+    if (false == m_Models[E_MODEL_BUNNY].load3DNmlModel("../Assets/Meshes/bunny.obj"))
+    {
+      printWarning("Failed to load bunny model");
+    }
+    if (false == m_Models[E_MODEL_LUCY_PRINCETON].load3DNmlModel("../Assets/Meshes/lucy_princeton.obj"))
+    {
+      printWarning("Failed to load lucy princeton model");
+    }
+  }
+
   // Load pipelines
   {
     auto& vkWin{ GSM.getVKWin() };
     {
       vulkanPipeline::setup pipelineSetup{ };
       pipelineSetup.m_VertexBindingMode = vulkanPipeline::E_VERTEX_BINDING_MODE::AOS_XYZ_F32;
-      pipelineSetup.m_PathShaderVert = "../Assets/Shaders/vert_Wireframe_Ass1.spv";
-      pipelineSetup.m_PathShaderFrag = "../Assets/Shaders/frag_Wireframe_Ass1.spv";
+      pipelineSetup.m_PathShaderVert = "../Assets/Shaders/vert_Wireframe_Ass2.spv";
+      pipelineSetup.m_PathShaderFrag = "../Assets/Shaders/frag_Wireframe_Ass2.spv";
       //pipelineSetup.m_UniformsVert
-      pipelineSetup.m_UniformsFrag = vulkanPipeline::createUniformInfo<glm::vec3>();
+      //pipelineSetup.m_UniformsFrag = vulkanPipeline::createUniformInfo<glm::vec3>();
       pipelineSetup.m_PushConstantRangeVert = vulkanPipeline::createPushConstantInfo<glm::mat4>(VK_SHADER_STAGE_VERTEX_BIT);
-      //pipelineSetup.m_PushConstantRangeFrag
+      pipelineSetup.m_PushConstantRangeFrag = vulkanPipeline::createPushConstantInfo<glm::vec3>(VK_SHADER_STAGE_FRAGMENT_BIT);
       pipelineSetup.m_PolygonMode = VkPolygonMode::VK_POLYGON_MODE_LINE;
+      //pipelineSetup.m_CullMode = VkCullModeFlagBits::VK_CULL_MODE_NONE;
 
-      vkWin->createPipelineInfo(m_Pipelines[0], pipelineSetup);
+      vkWin->createPipelineInfo(m_Pipelines[E_PIPELINE_WIREFRAME], pipelineSetup);
+    }
+    {
+      vulkanPipeline::setup pipelineSetup{ };
+      pipelineSetup.m_VertexBindingMode = vulkanPipeline::E_VERTEX_BINDING_MODE::AOS_XYZ_RGB_F32;
+      pipelineSetup.m_PathShaderVert = "../Assets/Shaders/vert_BasicLight_Ass2.spv";
+      pipelineSetup.m_PathShaderFrag = "../Assets/Shaders/frag_BasicLight_Ass2.spv";
+      //pipelineSetup.m_UniformsVert
+      //pipelineSetup.m_UniformsFrag = vulkanPipeline::createUniformInfo<glm::vec3>();
+      pipelineSetup.m_PushConstantRangeVert = vulkanPipeline::createPushConstantInfo<glm::mat4>(VK_SHADER_STAGE_VERTEX_BIT);
+      // using vec4 here to maintain 16B alignment, there is essentially 4B of dead space here
+      pipelineSetup.m_PushConstantRangeFrag = vulkanPipeline::createPushConstantInfo<glm::vec4, glm::vec3>(VK_SHADER_STAGE_FRAGMENT_BIT);
+      pipelineSetup.m_PolygonMode = VkPolygonMode::VK_POLYGON_MODE_FILL;
+
+      vkWin->createPipelineInfo(m_Pipelines[E_PIPELINE_BASICLIGHT], pipelineSetup);
     }
   }
 
@@ -106,8 +144,8 @@ void MTU::GS_Assignment_2::Init()
   m_Cam.m_AspectRatio = static_cast<float>(GSM.getVKWin()->m_windowsWindow.getWidth()) / GSM.getVKWin()->m_windowsWindow.getHeight();
   m_Cam.m_FOV = glm::radians(75.0f);
   // default constructed sensitivity
-  // default constructed near
-  // default constructed far
+  m_Cam.m_Near = 0.000625f;
+  m_Cam.m_Far = 25000.0f;
   m_Cam.m_Pos = glm::vec3{ 0.0f, 0.0f, 2.0f };
   m_Cam.m_Rot = glm::vec2{ glm::half_pi<float>(), 0.0f };
   {
@@ -116,6 +154,7 @@ void MTU::GS_Assignment_2::Init()
     m_Cam.updateCursor(currCursorPos, false);
   }
   m_Cam.updateMatrix();
+  m_LightColor = glm::vec3{ 0.5f, 0.5f, 0.75f };
   m_CamMoveSpeed = 2.5f;
   m_CamFastModifier = 2.0f;
 }
@@ -147,7 +186,10 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
     ImGui::DragFloat("Sensitivity", &m_Cam.m_Sensitivity, 0.0000125f, 0.00078125f, 0.0625f);
 
     // NEAR AND FAR PLANES
-    ImGui::DragFloat2("Near/Far", &m_Cam.m_Near, 0.125f, 0.0000125f, 12500.0f);
+    ImGui::DragFloat2("Near/Far", &m_Cam.m_Near, 0.125f, 0.0000125f, 25000.0f);
+
+    // CAMERA LIGHT COLOR
+    ImGui::DragFloat3("Camera Light Color", &m_LightColor.x, 0.0125f, 0.0f, 1.0f);
 
   }
   ImGui::End();
@@ -207,13 +249,33 @@ void MTU::GS_Assignment_2::Draw()
   if (FCB == VK_NULL_HANDLE)return;
 
   GSM.getVKWin()->createAndSetPipeline(m_Pipelines[E_PIPELINE_WIREFRAME]);
-  {
+
+  { // centered draw test
     glm::vec3 tempColor{ 0.0f, 1.0f, 0.0f };
-    GSM.getVKWin()->setUniform(m_Pipelines[E_PIPELINE_WIREFRAME], 1, 0, &tempColor, sizeof(tempColor));
+    m_Pipelines[E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &m_Cam.m_W2V);
+    m_Pipelines[E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &tempColor);
+    m_DebugModels[E_DEBUGMODEL_CUBE].draw(FCB);
+  }
+  { // offset red draw test
+    glm::vec3 tempColor{ 1.0f, 0.0f, 0.0f };
+    glm::mat4 xform{ m_Cam.m_W2V * glm::translate(glm::identity<glm::mat4>(), glm::vec3{ 2.0f, 0.0f, 0.0f }) };
+    m_Pipelines[E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
+    m_Pipelines[E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &tempColor);
+    m_DebugModels[E_DEBUGMODEL_SPHERE].draw(FCB);
   }
 
-  m_Pipelines[E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &m_Cam.m_W2V);
-  m_DebugModels[E_DEBUGMODEL_CUBE].draw(FCB);
+  GSM.getVKWin()->createAndSetPipeline(m_Pipelines[E_PIPELINE_BASICLIGHT]);
+  {
+    // TODO W2M Matrix done on a per object level
+    m_Pipelines[E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &m_Cam.m_Pos);
+    m_Pipelines[E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 16, sizeof(glm::vec3), &m_LightColor);
+    
+    m_Pipelines[E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &m_Cam.m_W2V);
+    m_Models[E_MODEL_BUNNY].draw(FCB);
+
+    m_Models[E_MODEL_LUCY_PRINCETON].draw(FCB);
+  }
+  
 
 }
 

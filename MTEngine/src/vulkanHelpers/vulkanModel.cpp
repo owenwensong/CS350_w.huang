@@ -406,6 +406,168 @@ bool vulkanModel::load3DModelPositionOnly(std::string_view const& fPath)
   return true;
 }
 
+bool vulkanModel::load3DNmlModel(std::string_view const& fPath)
+{
+  assert(m_Buffer_Vertex.m_Buffer == VK_NULL_HANDLE && m_Buffer_Index.m_Buffer == VK_NULL_HANDLE);
+  windowHandler* pWH{ windowHandler::getPInstance() };
+  assert(pWH != nullptr);// debug only, flow should be pretty standard.
+
+#define PATHWARNHELPER(x) printWarning(std::string{ fPath }.append(x), true)
+
+  Assimp::Importer Importer;
+  aiScene const* pScene
+  {
+    Importer.ReadFile
+    (
+      fPath.data(),
+        aiProcess_Triangulate             // only support triangles
+      | aiProcess_RemoveRedundantMaterials// claims to be useful w/ PreTransform
+      | aiProcess_JoinIdenticalVertices   // my OBJ parser had it too... cool
+      | aiProcess_PreTransformVertices    // force the right transform for skull
+      //| aiProcess_CalcTangentSpace        // should always work after GenNormals
+      | aiProcess_GenNormals              // in case they don't exist
+    )
+  };
+
+  if (pScene == nullptr || false == pScene->HasMeshes())return false;
+
+  std::vector<VTX_3D_RGB> vertices;
+  std::vector<uint32_t> indices;
+
+  { // reserve all the space needed...
+    size_t vSpace{ 0 }, iSpace{ 0 };
+    for (unsigned int i{ 0 }, t{ pScene->mNumMeshes }; i < t; ++i)
+    {
+      vSpace += pScene->mMeshes[i]->mNumVertices;
+      for (unsigned int j{ 0 }, k{ pScene->mMeshes[i]->mNumFaces }; j < k; ++j)
+      {
+        iSpace += pScene->mMeshes[i]->mFaces[j].mNumIndices;
+      }
+    }
+    vertices.reserve(vSpace);
+    indices.reserve(iSpace);
+  }
+
+  // end up being unnecessary, pretransformvertices was what I needed...
+  for (unsigned int i{ 0 }, t{ pScene->mNumMeshes }; i < t; ++i)
+  {
+    aiMesh& refMesh{ *pScene->mMeshes[i] };
+    if (false == refMesh.HasNormals())
+    {
+      PATHWARNHELPER(" | has no normals"sv);
+      return false;
+    }
+
+    // save index offset (indices start from last vertex for multi mesh objects)
+    size_t indexOffset{ vertices.size() };
+
+    // Set up vertices
+    for (unsigned int j{ 0 }, k{ refMesh.mNumVertices }; j < k; ++j)
+    {
+      aiVector3D& refVtx{ refMesh.mVertices[j] };
+      aiVector3D& refNml{ refMesh.mNormals[j] };
+      aiVector3D& refTan{ refMesh.mTangents[j] };
+
+      VTX_3D_RGB& currVertex{ vertices.emplace_back() };
+      {
+        currVertex.m_Pos.x = refVtx.x;
+        currVertex.m_Pos.y = refVtx.y;
+        currVertex.m_Pos.z = refVtx.z;
+
+        currVertex.m_Col.x = refNml.x;
+        currVertex.m_Col.y = refNml.y;
+        currVertex.m_Col.z = refNml.z;
+      };
+    }
+
+    // Set up Indices
+    if (refMesh.HasFaces())
+    {
+      for (unsigned int j{ 0 }; j < refMesh.mNumFaces; ++j)
+      {
+        aiFace& refFace{ refMesh.mFaces[j] };
+        for (unsigned int k{ 0 }; k < refFace.mNumIndices; ++k)
+        {
+          indices.emplace_back(static_cast<decltype(indices)::value_type>(indexOffset + refFace.mIndices[k]));
+        }
+      }
+    }// else add by raw vertex?
+  }
+
+  m_VertexCount = static_cast<uint32_t>(vertices.size());
+  m_IndexCount = static_cast<uint32_t>(indices.size());
+
+  // in case I ever want to change or copy it somewhere
+  if constexpr (std::is_same_v<decltype(indices)::value_type, uint8_t>)m_IndexType = VK_INDEX_TYPE_UINT8_EXT;
+  if constexpr (std::is_same_v<decltype(indices)::value_type, uint16_t>)m_IndexType = VK_INDEX_TYPE_UINT16;
+  if constexpr (std::is_same_v<decltype(indices)::value_type, uint32_t>)m_IndexType = VK_INDEX_TYPE_UINT32;
+
+  // Set up vertex buffer
+  if (false == pWH->createBuffer
+  (
+    m_Buffer_Vertex,
+    {
+      { vulkanBuffer::s_BufferUsage_Vertex },
+      { vulkanBuffer::s_MemPropFlag_Vertex },
+      { m_VertexCount },
+      { sizeof(decltype(vertices)::value_type) }
+    }
+  ))
+  {
+    printWarning("failed to create model vertex buffer"sv, true);
+    return false;
+  }
+
+  // write vertex buffer
+  pWH->writeToBuffer
+  (
+    m_Buffer_Vertex,
+    {
+      vertices.data()
+    },
+    {
+      static_cast<VkDeviceSize>(vertices.size()) * sizeof(decltype(vertices)::value_type)
+    }
+    );
+
+  // Set up index buffer
+  if (m_IndexCount)
+  {
+    if (false == pWH->createBuffer
+    (
+      m_Buffer_Index,
+      {
+        { vulkanBuffer::s_BufferUsage_Index },
+        { vulkanBuffer::s_MemPropFlag_Index },
+        { m_IndexCount },
+        { sizeof(decltype(indices)::value_type) }
+      }
+    ))
+    {
+      printWarning("failed to create model index buffer"sv, true);
+      return false;
+    }
+
+    // write index buffer
+    pWH->writeToBuffer
+    (
+      m_Buffer_Index,
+      {
+        indices.data()
+      },
+      {
+        static_cast<VkDeviceSize>(indices.size()) * sizeof(decltype(indices)::value_type)
+      }
+      );
+  }
+  else
+  {
+    m_Buffer_Index = vulkanBuffer{  };
+  }
+#undef PATHWARNHELPER
+  return true;
+}
+
 void vulkanModel::destroyModel()
 {
   if (windowHandler* pWH{ windowHandler::getPInstance() }; pWH != nullptr)

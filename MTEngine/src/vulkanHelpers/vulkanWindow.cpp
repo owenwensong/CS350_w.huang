@@ -1418,7 +1418,7 @@ bool vulkanWindow::createPipelineInfo(vulkanPipeline& outPipeline, vulkanPipelin
     outPipeline.m_Rasterizer.depthClampEnable				 = { VK_FALSE },	// clamp instead of discarding stuff outside the near/far planes
     outPipeline.m_Rasterizer.rasterizerDiscardEnable = { VK_FALSE },
     outPipeline.m_Rasterizer.polygonMode						 = { inSetup.m_PolygonMode },
-    outPipeline.m_Rasterizer.cullMode								 = { VK_CULL_MODE_BACK_BIT },	// back face culling
+    outPipeline.m_Rasterizer.cullMode								 = { inSetup.m_CullMode },
     outPipeline.m_Rasterizer.frontFace							 = { VK_FRONT_FACE_COUNTER_CLOCKWISE },
     outPipeline.m_Rasterizer.depthBiasEnable				 = { VK_FALSE },
     outPipeline.m_Rasterizer.depthBiasConstantFactor = { 0.0f },

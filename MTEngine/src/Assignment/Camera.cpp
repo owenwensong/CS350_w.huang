@@ -13,8 +13,8 @@
 #include <iostream>
 
 // nextafter only constexpr after C++23
-const float MTU::Camera::s_RotYMin{ std::nextafterf(-glm::radians(89.99f), 0.0f) };
-const float MTU::Camera::s_RotYMax{ std::nextafterf( glm::radians(89.99f), 0.0f) };
+const float MTU::Camera::s_RotYMin{ std::nextafterf(-glm::radians(89.9f), 0.0f) };
+const float MTU::Camera::s_RotYMax{ std::nextafterf( glm::radians(89.9f), 0.0f) };
 const glm::vec3 MTU::Camera::s_Up{ 0.0f, 1.0f, 0.0f };
 
 void MTU::Camera::updateCursor(glm::ivec2 const& CursorCurr, bool shouldUpdateRotation)

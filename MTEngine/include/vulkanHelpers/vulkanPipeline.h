@@ -99,6 +99,7 @@ struct vulkanPipeline
     VkPushConstantRange m_PushConstantRangeFrag{ createPushConstantInfo<>(VK_SHADER_STAGE_FRAGMENT_BIT) };
   
     VkPolygonMode m_PolygonMode{ VK_POLYGON_MODE_FILL };
+    VkCullModeFlags m_CullMode{ VK_CULL_MODE_BACK_BIT };
   };
 
   // moved in, dangerous... keep track of allocations maybe?

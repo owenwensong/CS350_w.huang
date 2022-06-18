@@ -43,12 +43,14 @@ namespace MTU
   private:
     windowsInput& inputs;
 
-    Camera m_Cam;
-    float  m_CamMoveSpeed;
-    float  m_CamFastModifier;
+    Camera    m_Cam;
+    glm::vec3 m_LightColor;
+    float     m_CamMoveSpeed;
+    float     m_CamFastModifier;
 
-    std::array<vulkanPipeline, 1> m_Pipelines;
+    std::array<vulkanPipeline, 2> m_Pipelines;
     std::array<vulkanModel, 3>    m_DebugModels;
+    std::array<vulkanModel, 2>    m_Models;
     
   };
 }

@@ -30,7 +30,8 @@ struct vulkanModel
   void (vulkanModel::* m_pFnDraw)(VkCommandBuffer) { &vulkanModel::drawInit };
 
   bool load3DUVModel(std::string_view const&);
-  bool load3DModelPositionOnly(std::string_view const&);
+  bool load3DModelPositionOnly(std::string_view const&);  // for assignment
+  bool load3DNmlModel(std::string_view const&);           // for assignment
   void destroyModel();
 
 };
