@@ -12,87 +12,40 @@
 #include <utility/ThreadTask.h>
 #include <Assignment/Geometry.h>
 #include <GameStateManager/GS_Assignment_2.h>
+#include <glm/gtc/quaternion.hpp>
 
-// *****************************************************************************
-// ************************************************** ENUMS FOR CONVENIENCE ****
-
-enum enumAss2Pipelines
+namespace A2H
 {
-  E_PIPELINE_WIREFRAME = 0,
-  E_PIPELINE_BASICLIGHT,
-
-  E_NUM_PIPELINES
-};
-
-enum enumAss2DebugModels
-{
-  E_DEBUGMODEL_SPHERE = 0,
-  E_DEBUGMODEL_CUBE,
-  E_DEBUGMODEL_POINT,
-
-  E_NUM_DEBUGMODELS
-};
-
-enum enumAss2Models
-{
-  E_MODEL_BUNNY = 0,
-  E_MODEL_LUCY_PRINCETON,
-  
-  E_NUM_MODELS
-};
-
-// *****************************************************************************
-
-MTU::GS_Assignment_2::GS_Assignment_2(GameStateManager& rGSM) :
-  GameState{ rGSM },
-  inputs{ rGSM.getInput() },
-  m_Cam{  },
-  m_LightColor{  },
-  m_CamMoveSpeed{  },
-  m_CamFastModifier{  },
-  m_Pipelines{  },
-  m_DebugModels{  },
-  m_Models{  }
-{
-  GS_PRINT_FUNCSIG();
-
-  bool shouldStopTaskLoading{ false };
-  MTU::ThreadTask isLoadingTask{ MTU::taskLoading, &shouldStopTaskLoading };
 
   // ***************************************************************************
-  // ************************************************************** LOADING ****
+  // **************************************************** LOADING FUNCTIONS ****
 
-  // Load debug models
+  static bool loadDebugModels(DMA& DebugModelArray)
   {
-    if (false == m_DebugModels[E_DEBUGMODEL_SPHERE].load3DModelPositionOnly("../Assets/Meshes/DebugMeshes/normalIcoSphere.obj"))
-    {
-      printWarning("Failed to load debug icosphere");
-    }
-    if (false == m_DebugModels[E_DEBUGMODEL_CUBE].load3DModelPositionOnly("../Assets/Meshes/DebugMeshes/normalCube.obj"))
-    {
-      printWarning("Failed to load debug cube");
-    }
-    if (false == m_DebugModels[E_DEBUGMODEL_POINT].load3DModelPositionOnly("../Assets/Meshes/DebugMeshes/normalPoint.obj"))
-    {
-      printWarning("Failed to load debug point");
-    }
+    bool retval{ true };
+#define A2H_LOAD_MODEL_HELPER(enumA, strB) if (false == DebugModelArray[enumA].load3DModelPositionOnly("../Assets/Meshes/" strB ".obj", true)) { printWarning("Failed to load model: " strB); retval = false; }
+    A2H_LOAD_MODEL_HELPER(E_DEBUGMODEL_SPHERE, "DebugMeshes/normalIcoSphere");
+    A2H_LOAD_MODEL_HELPER(E_DEBUGMODEL_CUBE, "DebugMeshes/normalCube");
+    A2H_LOAD_MODEL_HELPER(E_DEBUGMODEL_POINT, "DebugMeshes/normalPoint");
+#undef A2H_LOAD_MODEL_HELPER
+    return retval;
   }
 
-  // Load models
+  static bool loadModels(MVA& ModelVerticesArray, MA& ModelArray)
   {
-    if (false == m_Models[E_MODEL_BUNNY].load3DNmlModel("../Assets/Meshes/bunny.obj"))
-    {
-      printWarning("Failed to load bunny model");
-    }
-    if (false == m_Models[E_MODEL_LUCY_PRINCETON].load3DNmlModel("../Assets/Meshes/lucy_princeton.obj"))
-    {
-      printWarning("Failed to load lucy princeton model");
-    }
+    bool retval{ true };
+#define A2H_LOAD_MODEL_HELPER(enumA, strB) if (false == ModelArray[enumA].load3DNmlModel("../Assets/Meshes/" strB ".obj", ModelVerticesArray[enumA], true)) { printWarning("Failed to load model: " strB); retval = false; }
+    A2H_LOAD_MODEL_HELPER(E_MODEL_BUNNY, "bunny");
+    A2H_LOAD_MODEL_HELPER(E_MODEL_LUCY_PRINCETON, "lucy_princeton");
+#undef A2H_LOAD_MODEL_HELPER
+    return retval;
   }
 
-  // Load pipelines
+  static bool loadPipelines(PLA& PipelineArray, std::unique_ptr<vulkanWindow>& vkWin)
   {
-    auto& vkWin{ GSM.getVKWin() };
+    bool retval{ true };
+
+    // COLORED WIREFRAME
     {
       vulkanPipeline::setup pipelineSetup{ };
       pipelineSetup.m_VertexBindingMode = vulkanPipeline::E_VERTEX_BINDING_MODE::AOS_XYZ_F32;
@@ -105,8 +58,13 @@ MTU::GS_Assignment_2::GS_Assignment_2(GameStateManager& rGSM) :
       pipelineSetup.m_PolygonMode = VkPolygonMode::VK_POLYGON_MODE_LINE;
       //pipelineSetup.m_CullMode = VkCullModeFlagBits::VK_CULL_MODE_NONE;
 
-      vkWin->createPipelineInfo(m_Pipelines[E_PIPELINE_WIREFRAME], pipelineSetup);
+      if (false == vkWin->createPipelineInfo(PipelineArray[A2H::E_PIPELINE_WIREFRAME], pipelineSetup))
+      {
+        retval = false;
+      }
     }
+
+    // SOLID COLOR, COLORED CAMERA LIGHT
     {
       vulkanPipeline::setup pipelineSetup{ };
       pipelineSetup.m_VertexBindingMode = vulkanPipeline::E_VERTEX_BINDING_MODE::AOS_XYZ_RGB_F32;
@@ -119,8 +77,60 @@ MTU::GS_Assignment_2::GS_Assignment_2(GameStateManager& rGSM) :
       pipelineSetup.m_PushConstantRangeFrag = vulkanPipeline::createPushConstantInfo<glm::vec4, glm::vec3>(VK_SHADER_STAGE_FRAGMENT_BIT);
       pipelineSetup.m_PolygonMode = VkPolygonMode::VK_POLYGON_MODE_FILL;
 
-      vkWin->createPipelineInfo(m_Pipelines[E_PIPELINE_BASICLIGHT], pipelineSetup);
+      if (false == vkWin->createPipelineInfo(PipelineArray[A2H::E_PIPELINE_BASICLIGHT], pipelineSetup))
+      {
+        retval = false;
+      }
     }
+
+    return retval;
+  }
+
+  // ***************************************************************************
+  // ***************************************************** HELPER FUNCTIONS ****
+
+
+
+  // ***************************************************************************
+
+}
+
+MTU::GS_Assignment_2::GS_Assignment_2(GameStateManager& rGSM) :
+  GameState{ rGSM },
+  inputs{ rGSM.getInput() },
+  m_Cam{  },
+  m_LightColor{  },
+  m_CamMoveSpeed{  },
+  m_CamFastModifier{  },
+  m_Pipelines{  },
+  m_DebugModels{  },
+  m_Vertices{  },
+  m_Models{  }
+{
+  GS_PRINT_FUNCSIG();
+
+  bool shouldStopTaskLoading{ false };
+  MTU::ThreadTask isLoadingTask{ MTU::taskLoading, &shouldStopTaskLoading };
+
+  // ***************************************************************************
+  // ************************************************************** LOADING ****
+
+  // Load debug models
+  if (false == A2H::loadDebugModels(m_DebugModels))
+  {
+    printWarning("Failed to load one or more models, please check file structure!");
+  }
+
+  // Load models
+  if (false == A2H::loadModels(m_Vertices, m_Models))
+  {
+    printWarning("Failed to load one or more models, please check file structure!");
+  }
+
+  // Load pipelines
+  if (false == A2H::loadPipelines(m_Pipelines, GSM.getVKWin()))
+  {
+    printWarning("Failed to load one or more pipelines, please check file structure!");
   }
 
   // ************************************************************** LOADING ****
@@ -248,32 +258,43 @@ void MTU::GS_Assignment_2::Draw()
   VkCommandBuffer FCB{ GSM.getFCB() };
   if (FCB == VK_NULL_HANDLE)return;
 
-  GSM.getVKWin()->createAndSetPipeline(m_Pipelines[E_PIPELINE_WIREFRAME]);
+  GSM.getVKWin()->createAndSetPipeline(m_Pipelines[A2H::E_PIPELINE_WIREFRAME]);
 
   { // centered draw test
     glm::vec3 tempColor{ 0.0f, 1.0f, 0.0f };
-    m_Pipelines[E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &m_Cam.m_W2V);
-    m_Pipelines[E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &tempColor);
-    m_DebugModels[E_DEBUGMODEL_CUBE].draw(FCB);
+    m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &m_Cam.m_W2V);
+    m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &tempColor);
+    m_DebugModels[A2H::E_DEBUGMODEL_CUBE].draw(FCB);
   }
   { // offset red draw test
     glm::vec3 tempColor{ 1.0f, 0.0f, 0.0f };
     glm::mat4 xform{ m_Cam.m_W2V * glm::translate(glm::identity<glm::mat4>(), glm::vec3{ 2.0f, 0.0f, 0.0f }) };
-    m_Pipelines[E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
-    m_Pipelines[E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &tempColor);
-    m_DebugModels[E_DEBUGMODEL_SPHERE].draw(FCB);
+    m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
+    m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &tempColor);
+    m_DebugModels[A2H::E_DEBUGMODEL_SPHERE].draw(FCB);
   }
 
-  GSM.getVKWin()->createAndSetPipeline(m_Pipelines[E_PIPELINE_BASICLIGHT]);
+  GSM.getVKWin()->createAndSetPipeline(m_Pipelines[A2H::E_PIPELINE_BASICLIGHT]);
   {
-    // TODO W2M Matrix done on a per object level
-    m_Pipelines[E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &m_Cam.m_Pos);
-    m_Pipelines[E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 16, sizeof(glm::vec3), &m_LightColor);
-    
-    m_Pipelines[E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &m_Cam.m_W2V);
-    m_Models[E_MODEL_BUNNY].draw(FCB);
+    // POC before starting on the game object struct
+    glm::mat3 M2W{ glm::mat3_cast(glm::quat{ glm::vec3
+    {
+      glm::radians(45.0f),
+      glm::radians(45.0f),
+      glm::radians(45.0f)
+    } }) };
 
-    m_Models[E_MODEL_LUCY_PRINCETON].draw(FCB);
+    glm::mat4 xform{ m_Cam.m_W2V * glm::mat4{ M2W } };
+
+    glm::vec3 lightpos{ glm::transpose(M2W) * m_Cam.m_Pos };
+
+    m_Pipelines[A2H::E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &lightpos);
+    m_Pipelines[A2H::E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 16, sizeof(glm::vec3), &m_LightColor);
+    
+    m_Pipelines[A2H::E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
+    m_Models[A2H::E_MODEL_BUNNY].draw(FCB);
+
+    m_Models[A2H::E_MODEL_LUCY_PRINCETON].draw(FCB);
   }
   
 

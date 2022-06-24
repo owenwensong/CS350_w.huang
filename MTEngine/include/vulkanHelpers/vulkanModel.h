@@ -10,6 +10,7 @@
 #ifndef VULKAN_MODEL_HELPER_HEADER
 #define VULKAN_MODEL_HELPER_HEADER
 
+#include <vector>
 #include <string_view>
 #include <vulkan/vulkan.h>
 #include <utility/vertices.h>
@@ -30,8 +31,8 @@ struct vulkanModel
   void (vulkanModel::* m_pFnDraw)(VkCommandBuffer) { &vulkanModel::drawInit };
 
   bool load3DUVModel(std::string_view const&);
-  bool load3DModelPositionOnly(std::string_view const&);  // for assignment
-  bool load3DNmlModel(std::string_view const&);           // for assignment
+  bool load3DModelPositionOnly(std::string_view const&, bool normalize = false);  // for assignment
+  bool load3DNmlModel(std::string_view const&, std::vector<glm::vec3>& outPositions, bool normalize = false);           // for assignment
   void destroyModel();
 
 };

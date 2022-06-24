@@ -90,19 +90,19 @@ MTU::GS_Assignment_1::GS_Assignment_1(GameStateManager& rGSM) :
     printWarning("Failed to load a prop");
   }
 
-  if (false == m_DebugModels[0].load3DModelPositionOnly("../Assets/Meshes/DebugMeshes/normalIcoSphere.obj"))
+  if (false == m_DebugModels[0].load3DModelPositionOnly("../Assets/Meshes/DebugMeshes/normalIcoSphere.obj", true))// normalization added 23/06/2022
   {
     printWarning("Failed to load debug icosphere");
   }
-  if (false == m_DebugModels[1].load3DModelPositionOnly("../Assets/Meshes/DebugMeshes/normalCube.obj"))
+  if (false == m_DebugModels[1].load3DModelPositionOnly("../Assets/Meshes/DebugMeshes/normalCube.obj", true))// normalization added 23/06/2022
   {
     printWarning("Failed to load debug cube");
   }
-  if (false == m_DebugModels[2].load3DModelPositionOnly("../Assets/Meshes/DebugMeshes/normalPoint.obj"))
+  if (false == m_DebugModels[2].load3DModelPositionOnly("../Assets/Meshes/DebugMeshes/normalPoint.obj", true))// normalization added 23/06/2022
   {
     printWarning("Failed to load debug point");
   }
-  if (false == m_DebugModels[3].load3DModelPositionOnly("../Assets/Meshes/DebugMeshes/normalPlane.obj"))
+  if (false == m_DebugModels[3].load3DModelPositionOnly("../Assets/Meshes/DebugMeshes/normalPlane.obj", true))// normalization added 23/06/2022
   {
     printWarning("Failed to load debug plane");
   }

@@ -17,6 +17,54 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <utility/matrixTransforms.h>
 
+namespace A2H // Assignment 2 Helper namespace
+{
+
+// *****************************************************************************
+// ************************************************** ENUMS FOR CONVENIENCE ****
+
+  enum enumAss2Pipelines
+  {
+    E_PIPELINE_WIREFRAME = 0,
+    E_PIPELINE_BASICLIGHT,
+
+    E_NUM_PIPELINES
+  };
+
+  enum enumAss2DebugModels
+  {
+    E_DEBUGMODEL_SPHERE = 0,
+    E_DEBUGMODEL_CUBE,
+    E_DEBUGMODEL_POINT,
+
+    E_NUM_DEBUGMODELS
+  };
+
+  enum enumAss2Models
+  {
+    E_MODEL_BUNNY = 0,
+    E_MODEL_LUCY_PRINCETON,
+
+    E_NUM_MODELS
+  };
+
+// ************************************************ STRUCTS FOR CONVENIENCE ****
+
+
+
+// *****************************************************************************
+// *********************************************** TYPEDEFS FOR CONVENIENCE ****
+
+  using PLA = std::array<vulkanPipeline, E_NUM_PIPELINES>;      // PipeLine Array
+  using DMA = std::array<vulkanModel, E_NUM_DEBUGMODELS>;       // Debug Model Array
+  using  MA = std::array<vulkanModel, E_NUM_MODELS>;            // Model Array
+  using MVA = std::array<std::vector<glm::vec3>, E_NUM_MODELS>; // Model Vertices Array
+
+// *****************************************************************************
+
+
+}
+
 namespace MTU
 {
   // Quick and dirty GameState class for CS350 assignment 2
@@ -48,9 +96,10 @@ namespace MTU
     float     m_CamMoveSpeed;
     float     m_CamFastModifier;
 
-    std::array<vulkanPipeline, 2> m_Pipelines;
-    std::array<vulkanModel, 3>    m_DebugModels;
-    std::array<vulkanModel, 2>    m_Models;
+    A2H::PLA m_Pipelines;    // rendering pipelines
+    A2H::DMA m_DebugModels;  // debug meshes
+    A2H::MVA m_Vertices;     // model raw vertices
+    A2H::MA  m_Models;       // assignment models
     
   };
 }

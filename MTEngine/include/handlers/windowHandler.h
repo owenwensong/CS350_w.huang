@@ -21,6 +21,24 @@
 #include <vulkanHelpers/vulkanTexture.h>
 #include <vector>
 
+namespace MTU
+{
+  // Write to buffer interleaved helper
+  struct W2BIHelper
+  {
+    void*     m_Data;// pointer to contiguous data
+    uint32_t  m_Size;// number of elements pointed to
+    uint32_t  m_ElemSize; // size of each element
+    uint32_t  m_Offset;   // offset into element to copy
+  };
+
+  template <typename T>
+  inline W2BIHelper getVectorW2BIHelper(std::vector<T>& x, uint32_t offsetInto) noexcept
+  {
+    return W2BIHelper{ x.data(), static_cast<uint32_t>(x.size()), sizeof(T), offsetInto };
+  }
+}
+
 class windowHandler : public Singleton<windowHandler>
 {
 public:
@@ -79,6 +97,7 @@ public:
     /// @param srcLen length of the data to write to the buffer
     /// @return true if the write is successful, false otherwise
     bool writeToBuffer(vulkanBuffer& dstBuffer, std::vector<void*> const& srcs, std::vector<VkDeviceSize> const& srcLens);
+    bool writeToBufferInterleaved(vulkanBuffer& dstBuffer, std::vector<MTU::W2BIHelper> srcs);
     bool createBuffer(vulkanBuffer& outBuffer, vulkanBuffer::Setup const& inSetup);
     void destroyBuffer(vulkanBuffer& inBuffer);
 

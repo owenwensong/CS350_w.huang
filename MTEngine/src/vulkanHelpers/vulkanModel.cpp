@@ -16,6 +16,17 @@
 #include <assimp/postprocess.h> // importer flags
 #pragma warning (default : 26451)
 
+static inline aiMatrix4x4 ai3DUniformScaleMat4(float scalar) noexcept
+{
+  return aiMatrix4x4
+  {
+    scalar, 0.0f,   0.0f,   0.0f,
+    0.0f,   scalar, 0.0f,   0.0f,
+    0.0f,   0.0f,   scalar, 0.0f,
+    0.0f,   0.0f,   0.0f,   1.0f
+  };
+}
+
 // *****************************************************************************
 // ****************************************************** non-class helpers ****
 
@@ -240,7 +251,7 @@ bool vulkanModel::load3DUVModel(std::string_view const& fPath)
   return true;
 }
 
-bool vulkanModel::load3DModelPositionOnly(std::string_view const& fPath)
+bool vulkanModel::load3DModelPositionOnly(std::string_view const& fPath, bool normalize)
 {
   assert(m_Buffer_Vertex.m_Buffer == VK_NULL_HANDLE && m_Buffer_Index.m_Buffer == VK_NULL_HANDLE);
   windowHandler* pWH{ windowHandler::getPInstance() };
@@ -249,6 +260,12 @@ bool vulkanModel::load3DModelPositionOnly(std::string_view const& fPath)
 #define PATHWARNHELPER(x) printWarning(std::string{ fPath }.append(x), true)
 
   Assimp::Importer Importer;
+
+  if (normalize)
+  {
+    Importer.SetPropertyBool(AI_CONFIG_PP_PTV_NORMALIZE, true);
+  }
+
   aiScene const* pScene
   {
     Importer.ReadFile
@@ -308,9 +325,9 @@ bool vulkanModel::load3DModelPositionOnly(std::string_view const& fPath)
 
       VTX_3D& currVertex{ vertices.emplace_back() };
       {
-        currVertex.m_Pos.x = refVtx.x;
-        currVertex.m_Pos.y = refVtx.y;
-        currVertex.m_Pos.z = refVtx.z;
+        currVertex.m_Pos.x = normalize ? 0.5f * refVtx.x : refVtx.x;
+        currVertex.m_Pos.y = normalize ? 0.5f * refVtx.y : refVtx.y;
+        currVertex.m_Pos.z = normalize ? 0.5f * refVtx.z : refVtx.z;
 
         //currVertex.m_Nml.x = refNml.x;
         //currVertex.m_Nml.y = refNml.y;
@@ -406,7 +423,7 @@ bool vulkanModel::load3DModelPositionOnly(std::string_view const& fPath)
   return true;
 }
 
-bool vulkanModel::load3DNmlModel(std::string_view const& fPath)
+bool vulkanModel::load3DNmlModel(std::string_view const& fPath, std::vector<glm::vec3>& outPositions, bool normalize)
 {
   assert(m_Buffer_Vertex.m_Buffer == VK_NULL_HANDLE && m_Buffer_Index.m_Buffer == VK_NULL_HANDLE);
   windowHandler* pWH{ windowHandler::getPInstance() };
@@ -415,6 +432,12 @@ bool vulkanModel::load3DNmlModel(std::string_view const& fPath)
 #define PATHWARNHELPER(x) printWarning(std::string{ fPath }.append(x), true)
 
   Assimp::Importer Importer;
+
+  if (normalize)
+  {
+    Importer.SetPropertyBool(AI_CONFIG_PP_PTV_NORMALIZE, true);
+  }
+
   aiScene const* pScene
   {
     Importer.ReadFile
@@ -431,7 +454,11 @@ bool vulkanModel::load3DNmlModel(std::string_view const& fPath)
 
   if (pScene == nullptr || false == pScene->HasMeshes())return false;
 
-  std::vector<VTX_3D_RGB> vertices;
+  using VBOType = VTX_3D_RGB;
+
+  static_assert(sizeof(glm::vec3) == sizeof(VTX_3D));
+  std::vector<glm::vec3> positions;
+  std::vector<VTX_3D> normals;
   std::vector<uint32_t> indices;
 
   { // reserve all the space needed...
@@ -444,7 +471,8 @@ bool vulkanModel::load3DNmlModel(std::string_view const& fPath)
         iSpace += pScene->mMeshes[i]->mFaces[j].mNumIndices;
       }
     }
-    vertices.reserve(vSpace);
+    positions.reserve(vSpace);
+    normals.reserve(vSpace);
     indices.reserve(iSpace);
   }
 
@@ -459,7 +487,7 @@ bool vulkanModel::load3DNmlModel(std::string_view const& fPath)
     }
 
     // save index offset (indices start from last vertex for multi mesh objects)
-    size_t indexOffset{ vertices.size() };
+    size_t indexOffset{ positions.size() };
 
     // Set up vertices
     for (unsigned int j{ 0 }, k{ refMesh.mNumVertices }; j < k; ++j)
@@ -467,15 +495,17 @@ bool vulkanModel::load3DNmlModel(std::string_view const& fPath)
       aiVector3D& refVtx{ refMesh.mVertices[j] };
       aiVector3D& refNml{ refMesh.mNormals[j] };
 
-      VTX_3D_RGB& currVertex{ vertices.emplace_back() };
+      glm::vec3& currPos{ positions.emplace_back() };
       {
-        currVertex.m_Pos.x = refVtx.x;
-        currVertex.m_Pos.y = refVtx.y;
-        currVertex.m_Pos.z = refVtx.z;
-
-        currVertex.m_Col.x = refNml.x;
-        currVertex.m_Col.y = refNml.y;
-        currVertex.m_Col.z = refNml.z;
+        currPos.x = normalize ? 0.5f * refVtx.x : refVtx.x;
+        currPos.y = normalize ? 0.5f * refVtx.y : refVtx.y;
+        currPos.z = normalize ? 0.5f * refVtx.z : refVtx.z;
+      }
+      VTX_3D& currNml{ normals.emplace_back() };
+      {
+        currNml.m_Pos.x = refNml.x;
+        currNml.m_Pos.y = refNml.y;
+        currNml.m_Pos.z = refNml.z;
       };
     }
 
@@ -493,7 +523,7 @@ bool vulkanModel::load3DNmlModel(std::string_view const& fPath)
     }// else add by raw vertex?
   }
 
-  m_VertexCount = static_cast<uint32_t>(vertices.size());
+  m_VertexCount = static_cast<uint32_t>(positions.size());
   m_IndexCount = static_cast<uint32_t>(indices.size());
 
   // in case I ever want to change or copy it somewhere
@@ -509,7 +539,7 @@ bool vulkanModel::load3DNmlModel(std::string_view const& fPath)
       { vulkanBuffer::s_BufferUsage_Vertex },
       { vulkanBuffer::s_MemPropFlag_Vertex },
       { m_VertexCount },
-      { sizeof(decltype(vertices)::value_type) }
+      { sizeof(VBOType) }
     }
   ))
   {
@@ -518,16 +548,11 @@ bool vulkanModel::load3DNmlModel(std::string_view const& fPath)
   }
 
   // write vertex buffer
-  pWH->writeToBuffer
-  (
-    m_Buffer_Vertex,
-    {
-      vertices.data()
-    },
-    {
-      static_cast<VkDeviceSize>(vertices.size()) * sizeof(decltype(vertices)::value_type)
-    }
-    );
+
+  if (false == pWH->writeToBufferInterleaved(m_Buffer_Vertex, { MTU::getVectorW2BIHelper(positions, 0), MTU::getVectorW2BIHelper(normals, offsetof(VTX_3D_RGB, m_Col)) }))
+  {
+    printWarning("Failed to write to buffer"sv);
+  }
 
   // Set up index buffer
   if (m_IndexCount)
@@ -557,13 +582,14 @@ bool vulkanModel::load3DNmlModel(std::string_view const& fPath)
       {
         static_cast<VkDeviceSize>(indices.size()) * sizeof(decltype(indices)::value_type)
       }
-      );
+    );
   }
   else
   {
     m_Buffer_Index = vulkanBuffer{  };
   }
 #undef PATHWARNHELPER
+  outPositions = std::move(positions);
   return true;
 }
 

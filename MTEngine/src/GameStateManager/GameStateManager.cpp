@@ -80,7 +80,7 @@ void MTU::GameStateManager::Run()
 {
   for (std::unique_ptr<GameState> upGS{ nullptr }; updateGameState(*this, upGS, m_gsNext); )
   {
-    if (upGS == nullptr)break;// should never happen
+    if (upGS == nullptr)break;// should never happen (quit returns false)
     if (m_gsNext == MTU::GS::E_RESTART)
     {
       m_gsNext = m_gsCurr;

@@ -238,6 +238,54 @@ bool windowHandler::writeToBuffer(vulkanBuffer& dstBuffer, std::vector<void*> co
   return retval;
 }
 
+bool windowHandler::writeToBufferInterleaved(vulkanBuffer& dstBuffer, std::vector<MTU::W2BIHelper> srcs)
+{
+  uint32_t srcLen{ srcs.size() ? srcs.front().m_Size : 0 };
+  for (auto const& x : srcs)
+  {
+    if (srcLen != x.m_Size)printWarning("differing src size in writeToBufferInterleaved!"sv);
+    assert(x.m_Offset + x.m_ElemSize <= dstBuffer.m_Settings.m_ElemSize);
+  }
+
+  uint32_t totalSrcLen{ srcLen * dstBuffer.m_Settings.m_ElemSize };
+  if (0 == totalSrcLen)return false;
+
+  assert(totalSrcLen <= dstBuffer.m_Settings.m_Count * dstBuffer.m_Settings.m_ElemSize);
+
+  vulkanBuffer stagingBuffer;
+  if (false == createBuffer(stagingBuffer, vulkanBuffer::Setup{ vulkanBuffer::s_BufferUsage_Staging, vulkanBuffer::s_MemPropFlag_Staging, totalSrcLen, 1 }))
+  {
+    printWarning("failed to create staging buffer"sv, true);
+    return false;
+  }
+
+  void* dstData{ nullptr };
+  if (VkResult tmpRes{ vkMapMemory(m_pVKDevice->m_VKDevice, stagingBuffer.m_BufferMemory, 0, VK_WHOLE_SIZE, 0, &dstData) }; tmpRes != VK_SUCCESS)
+  {
+    destroyBuffer(stagingBuffer);
+    printVKWarning(tmpRes, "Failed to map staging buffer"sv, true);
+    return false;
+  }
+
+  for (size_t i{ 0 }; i < srcLen; ++i)
+  {
+#define RCCADV(pData, iAdv) reinterpret_cast<char*>(pData) + iAdv // Reinterpret Cast Char ADVance
+    for (MTU::W2BIHelper& x : srcs)
+    {
+      if (i >= x.m_Size)continue;
+      std::memcpy(RCCADV(dstData, x.m_Offset), RCCADV(x.m_Data, i * x.m_ElemSize), static_cast<size_t>(x.m_ElemSize));
+    }
+    dstData = RCCADV(dstData, dstBuffer.m_Settings.m_ElemSize);
+#undef RCCADV
+  }
+
+  vkUnmapMemory(m_pVKDevice->m_VKDevice, stagingBuffer.m_BufferMemory);
+
+  bool retval{ copyBuffer(dstBuffer, stagingBuffer, totalSrcLen) };
+  destroyBuffer(stagingBuffer);
+  return retval;
+}
+
 bool windowHandler::copyBuffer(vulkanBuffer& dstBuffer, vulkanBuffer& srcBuffer, VkDeviceSize cpySize)
 {
   if (VkCommandBuffer transferCmdBuffer{ beginOneTimeSubmitCommand() }; transferCmdBuffer != VK_NULL_HANDLE)
