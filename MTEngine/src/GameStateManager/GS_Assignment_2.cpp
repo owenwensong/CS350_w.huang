@@ -105,7 +105,8 @@ MTU::GS_Assignment_2::GS_Assignment_2(GameStateManager& rGSM) :
   m_Pipelines{  },
   m_DebugModels{  },
   m_Vertices{  },
-  m_Models{  }
+  m_Models{  },
+  m_Objects{  }
 {
   GS_PRINT_FUNCSIG();
 
@@ -167,6 +168,34 @@ void MTU::GS_Assignment_2::Init()
   m_LightColor = glm::vec3{ 0.5f, 0.5f, 0.75f };
   m_CamMoveSpeed = 2.5f;
   m_CamFastModifier = 2.0f;
+
+  // ***************************************************************************
+  // ****************************************** SCENE OBJECT INITIALIZATION ****
+
+  m_Objects.clear();    // clear existing objects
+  m_Objects.reserve(2); // reserve memory for basic scene
+
+  {
+    A2H::Object& obj{ m_Objects.emplace_back() };
+    obj.m_Pos = glm::vec3{ 0.0f, 0.0f, 0.0f };
+    //obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
+    obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
+    obj.m_Scale = glm::vec3{ 1.0f, 1.0f, 1.0f };
+    obj.updateMatrices();
+    obj.m_Model = A2H::E_MODEL_BUNNY;
+  }
+
+  {
+    A2H::Object& obj{ m_Objects.emplace_back() };
+    obj.m_Pos = glm::vec3{ 2.0f, 2.0f, 2.0f };
+    //obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
+    obj.m_Rot = glm::vec3{ glm::radians(45.0f), glm::radians(45.0f), glm::radians(45.0f) };
+    obj.m_Scale = glm::vec3{ 1.0f, 1.0f, 1.0f };
+    obj.updateMatrices();
+    obj.m_Model = A2H::E_MODEL_LUCY_PRINCETON;
+  }
+
+  // ***************************************************************************
 }
 
 void MTU::GS_Assignment_2::Update(uint64_t dt)
@@ -201,6 +230,64 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
     // CAMERA LIGHT COLOR
     ImGui::DragFloat3("Camera Light Color", &m_LightColor.x, 0.0125f, 0.0f, 1.0f);
 
+    // TODO: add checkboxes here for AABB/OBB/BS/BVH
+
+    // TODO: add compute bounding volumes & compute BVH buttons
+
+    // SCENE OBJECTS EDITOR (Add only, lazy to support remove)
+    ImGui::Separator();
+    if (ImGui::BeginChild("Objects", ImVec2{ 0.0f, 7.5f * ImGui::GetFrameHeightWithSpacing() }, true))
+    {
+
+      for (size_t i{ 0 }, t{ m_Objects.size() }; i < t; ++i)
+      {
+        // quick and dirty ptr_id, idk if it will cause any leaks with
+        // imgui when the vector is resized. Hopefully not, but this
+        // isn't meant to be a long term framework, just for assignment 2.
+        A2H::Object* pObject{ m_Objects.data() + i };
+        
+        if (ImGui::TreeNode(pObject, "Object %d", static_cast<int>(i)))
+        {
+          // Object Position
+          ImGui::DragFloat3("Pos", &pObject->m_Pos.x, 0.125f, -1000.0f, 1000.0f);
+
+          // Object Rotation
+          ImGui::DragFloat3("Rot", &pObject->m_Rot.x, 0.0125f, -glm::pi<float>(), glm::pi<float>());
+          ImGui::SameLine();
+          ImGui::TextUnformatted("(?)");
+          if (ImGui::IsItemHovered())
+          {
+            ImGui::BeginTooltip();
+            ImGui::TextUnformatted("Rotation display: Pitch->Yaw->Roll\nEvaluation order: Roll->Yaw->Pitch");
+            ImGui::EndTooltip();
+          }
+
+          // Object Scale
+          ImGui::DragFloat3("Scale", &pObject->m_Scale.x, 0.0125f, 0.125f, 1000.0f);
+
+          // Object Model
+          if (ImGui::BeginCombo("Model", A2H::namesAss2Models[pObject->m_Model]))
+          {
+
+            for (size_t j{ 0 }; j < A2H::E_NUM_MODELS; ++j)
+            {
+              if (ImGui::Selectable(A2H::namesAss2Models[j]))
+              {
+                pObject->m_Model = static_cast<A2H::enumAss2Models>(j);
+                break;
+              }
+            }
+
+            ImGui::EndCombo();// objModel combo
+          }
+
+          ImGui::TreePop();// testy node pop
+        }
+      }
+
+    }
+    ImGui::EndChild();// Objects child
+    
   }
   ImGui::End();
 
@@ -250,6 +337,11 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
 
   // ******************************************************** Update camera ****
   // ***************************************************************************
+  // ******************************************************* Update objects ****
+
+  for (auto& x : m_Objects)x.updateMatrices();// check if imgui checkbox?
+
+  // ***************************************************************************
 
 }
 
@@ -264,39 +356,28 @@ void MTU::GS_Assignment_2::Draw()
     glm::vec3 tempColor{ 0.0f, 1.0f, 0.0f };
     m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &m_Cam.m_W2V);
     m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &tempColor);
-    m_DebugModels[A2H::E_DEBUGMODEL_CUBE].draw(FCB);
+    m_DebugModels[A2H::E_DEBUGMODEL_SPHERE].draw(FCB);
   }
   { // offset red draw test
     glm::vec3 tempColor{ 1.0f, 0.0f, 0.0f };
-    glm::mat4 xform{ m_Cam.m_W2V * glm::translate(glm::identity<glm::mat4>(), glm::vec3{ 2.0f, 0.0f, 0.0f }) };
+    glm::mat4 xform{ m_Cam.m_W2V * glm::translate(glm::identity<glm::mat4>(), glm::vec3{ 2.0f, 2.0f, 2.0f }) };
     m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
     m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &tempColor);
-    m_DebugModels[A2H::E_DEBUGMODEL_SPHERE].draw(FCB);
+    m_DebugModels[A2H::E_DEBUGMODEL_CUBE].draw(FCB);
   }
 
   GSM.getVKWin()->createAndSetPipeline(m_Pipelines[A2H::E_PIPELINE_BASICLIGHT]);
+  m_Pipelines[A2H::E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 16, sizeof(glm::vec3), &m_LightColor);
+  for (auto& x : m_Objects)
   {
-    // POC before starting on the game object struct
-    glm::mat3 M2W{ glm::mat3_cast(glm::quat{ glm::vec3
-    {
-      glm::radians(45.0f),
-      glm::radians(45.0f),
-      glm::radians(45.0f)
-    } }) };
-
-    glm::mat4 xform{ m_Cam.m_W2V * glm::mat4{ M2W } };
-
-    glm::vec3 lightpos{ glm::transpose(M2W) * m_Cam.m_Pos };
+    glm::mat4 xform{ m_Cam.m_W2V * x.m_M2W };
+    glm::vec3 lightpos{ x.m_W2M * glm::vec4{ m_Cam.m_Pos, 1.0f } };
 
     m_Pipelines[A2H::E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &lightpos);
-    m_Pipelines[A2H::E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 16, sizeof(glm::vec3), &m_LightColor);
-    
     m_Pipelines[A2H::E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
-    m_Models[A2H::E_MODEL_BUNNY].draw(FCB);
+    m_Models[x.m_Model].draw(FCB);
 
-    m_Models[A2H::E_MODEL_LUCY_PRINCETON].draw(FCB);
   }
-  
 
 }
 
@@ -311,4 +392,22 @@ MTU::GS_Assignment_2::~GS_Assignment_2()
 
   for (auto& x : m_Pipelines)GSM.getVKWin()->destroyPipelineInfo(x);
   for (auto& x : m_DebugModels)x.destroyModel();
+  for (auto& x : m_Models)x.destroyModel();
 }
+
+// *****************************************************************************
+// ****************************************** HELPER CLASS/STRUCT FUNCTIONS ****
+
+void A2H::Object::updateMatrices()
+{
+  glm::mat3 rotMat{ glm::mat3_cast(glm::quat{ m_Rot }) };
+
+  m_M2W = glm::mat4{ rotMat * glm::mat3{ m_Scale.x, 0.0f, 0.0f, 0.0f, m_Scale.y, 0.0f, 0.0f, 0.0f, m_Scale.z } };
+  m_M2W[3].x = m_Pos.x;
+  m_M2W[3].y = m_Pos.y;
+  m_M2W[3].z = m_Pos.z;
+  m_W2M = glm::translate(glm::mat4{ glm::mat3{(m_Scale.x ? 1.0f / m_Scale.x : 0.0f), 0.0f, 0.0f, 0.0f, (m_Scale.y ? 1.0f / m_Scale.y : 0.0f), 0.0f, 0.0f, 0.0f, (m_Scale.z ? 1.0f / m_Scale.z : 0.0f) } *glm::transpose(rotMat) }, -m_Pos);
+}
+
+// *****************************************************************************
+

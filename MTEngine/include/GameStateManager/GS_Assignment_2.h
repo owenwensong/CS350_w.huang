@@ -13,6 +13,7 @@
 #include <GameStateManager/GameStateBase.h>
 
 #include <Assignment/Camera.h>
+#include <Assignment/Geometry.h>
 #include <vulkanHelpers/vulkanModel.h>
 #include <glm/gtc/matrix_transform.hpp>
 #include <utility/matrixTransforms.h>
@@ -25,7 +26,8 @@ namespace A2H // Assignment 2 Helper namespace
 
   enum enumAss2Pipelines
   {
-    E_PIPELINE_WIREFRAME = 0,
+    E_PIPELINE_FIRST = 0,
+    E_PIPELINE_WIREFRAME = E_PIPELINE_FIRST,
     E_PIPELINE_BASICLIGHT,
 
     E_NUM_PIPELINES
@@ -33,7 +35,8 @@ namespace A2H // Assignment 2 Helper namespace
 
   enum enumAss2DebugModels
   {
-    E_DEBUGMODEL_SPHERE = 0,
+    E_DEBUGMODEL_FIRST = 0,
+    E_DEBUGMODEL_SPHERE = E_DEBUGMODEL_FIRST,
     E_DEBUGMODEL_CUBE,
     E_DEBUGMODEL_POINT,
 
@@ -42,15 +45,26 @@ namespace A2H // Assignment 2 Helper namespace
 
   enum enumAss2Models
   {
-    E_MODEL_BUNNY = 0,
+    E_MODEL_FIRST = 0,
+    E_MODEL_BUNNY = E_MODEL_FIRST,
     E_MODEL_LUCY_PRINCETON,
 
     E_NUM_MODELS
   };
 
-// ************************************************ STRUCTS FOR CONVENIENCE ****
+// *****************************************************************************
+// **************************************** STRING LITERALS FOR CONVENIENCE ****
 
+  constexpr const char* namesAss2Models[E_NUM_MODELS]
+  {
+    "Bunny",
+    "Lucy Princeton"
+  };
 
+// *****************************************************************************
+// **************************** STRUCT FORWARD DECLARATIONS FOR CONVENIENCE ****
+
+  struct Object;
 
 // *****************************************************************************
 // *********************************************** TYPEDEFS FOR CONVENIENCE ****
@@ -59,6 +73,27 @@ namespace A2H // Assignment 2 Helper namespace
   using DMA = std::array<vulkanModel, E_NUM_DEBUGMODELS>;       // Debug Model Array
   using  MA = std::array<vulkanModel, E_NUM_MODELS>;            // Model Array
   using MVA = std::array<std::vector<glm::vec3>, E_NUM_MODELS>; // Model Vertices Array
+  using  OV = std::vector<Object>;                              // Object vector
+
+// *****************************************************************************
+// ************************************************ STRUCTS FOR CONVENIENCE ****
+
+  struct Object
+  {
+    glm::vec3 m_Pos;
+    glm::vec3 m_Rot;  // stored Pitch, Yaw, Roll, calculated Roll->Yaw->Pitch
+    glm::vec3 m_Scale;
+
+    glm::mat4 m_M2W;
+    glm::mat4 m_W2M;
+
+    MTG::AABB m_AABB;
+
+    enumAss2Models m_Model;
+
+    void updateMatrices();
+
+  };
 
 // *****************************************************************************
 
@@ -100,6 +135,7 @@ namespace MTU
     A2H::DMA m_DebugModels;  // debug meshes
     A2H::MVA m_Vertices;     // model raw vertices
     A2H::MA  m_Models;       // assignment models
+    A2H::OV  m_Objects;      // objects
     
   };
 }
