@@ -46,8 +46,10 @@ namespace A2H // Assignment 2 Helper namespace
   enum enumAss2Models
   {
     E_MODEL_FIRST = 0,
-    E_MODEL_BUNNY = E_MODEL_FIRST,
+    E_MODEL_4SPHERE = E_MODEL_FIRST,
+    E_MODEL_BUNNY,
     E_MODEL_LUCY_PRINCETON,
+    E_MODEL_STAR_DESTROYER,
 
     E_NUM_MODELS
   };
@@ -57,8 +59,10 @@ namespace A2H // Assignment 2 Helper namespace
 
   constexpr const char* namesAss2Models[E_NUM_MODELS]
   {
+    "4Sphere",
     "Bunny",
-    "Lucy Princeton"
+    "Lucy Princeton",
+    "Star Destroyer"
   };
 
 // *****************************************************************************
@@ -69,11 +73,12 @@ namespace A2H // Assignment 2 Helper namespace
 // *****************************************************************************
 // *********************************************** TYPEDEFS FOR CONVENIENCE ****
 
-  using PLA = std::array<vulkanPipeline, E_NUM_PIPELINES>;      // PipeLine Array
-  using DMA = std::array<vulkanModel, E_NUM_DEBUGMODELS>;       // Debug Model Array
-  using  MA = std::array<vulkanModel, E_NUM_MODELS>;            // Model Array
-  using MVA = std::array<std::vector<glm::vec3>, E_NUM_MODELS>; // Model Vertices Array
-  using  OV = std::vector<Object>;                              // Object vector
+  using PLA = std::array<vulkanPipeline, E_NUM_PIPELINES>;// PipeLine Array
+  using DMA = std::array<vulkanModel, E_NUM_DEBUGMODELS>; // Debug Model Array
+  using  MA = std::array<vulkanModel, E_NUM_MODELS>;      // Model Array
+  using  VV = std::vector<glm::vec3>;                     // Vertex vector
+  using MVA = std::array<VV, E_NUM_MODELS>;               // Model Vertices Array
+  using  OV = std::vector<Object>;                        // Object vector
 
 // *****************************************************************************
 // ************************************************ STRUCTS FOR CONVENIENCE ****
@@ -88,16 +93,22 @@ namespace A2H // Assignment 2 Helper namespace
     glm::mat4 m_W2M;
 
     MTG::AABB m_AABB;
+    MTG::Sphere m_BS_Ritter;
 
     enumAss2Models m_Model;
 
     void updateMatrices();
+    void computeBoundingVolumes(MVA const& inModelVertexArray);
 
   };
 
 // *****************************************************************************
+// ********************************************** FUNCTIONS FOR CONVENIENCE ****
 
+  glm::mat4 getAABBMat(MTG::AABB const& inAABB) noexcept;
+  glm::mat4 getBSMat(MTG::Sphere const& inBS) noexcept;
 
+// *****************************************************************************
 }
 
 namespace MTU
@@ -136,6 +147,9 @@ namespace MTU
     A2H::MVA m_Vertices;     // model raw vertices
     A2H::MA  m_Models;       // assignment models
     A2H::OV  m_Objects;      // objects
+
+    bool m_bDrawAABB;
+    bool m_bDrawBS_Ritter;
     
   };
 }

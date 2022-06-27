@@ -35,8 +35,10 @@ namespace A2H
   {
     bool retval{ true };
 #define A2H_LOAD_MODEL_HELPER(enumA, strB) if (false == ModelArray[enumA].load3DNmlModel("../Assets/Meshes/" strB ".obj", ModelVerticesArray[enumA], true)) { printWarning("Failed to load model: " strB); retval = false; }
+    A2H_LOAD_MODEL_HELPER(E_MODEL_4SPHERE, "4Sphere");
     A2H_LOAD_MODEL_HELPER(E_MODEL_BUNNY, "bunny");
     A2H_LOAD_MODEL_HELPER(E_MODEL_LUCY_PRINCETON, "lucy_princeton");
+    A2H_LOAD_MODEL_HELPER(E_MODEL_STAR_DESTROYER, "starwars1");
 #undef A2H_LOAD_MODEL_HELPER
     return retval;
   }
@@ -56,7 +58,7 @@ namespace A2H
       pipelineSetup.m_PushConstantRangeVert = vulkanPipeline::createPushConstantInfo<glm::mat4>(VK_SHADER_STAGE_VERTEX_BIT);
       pipelineSetup.m_PushConstantRangeFrag = vulkanPipeline::createPushConstantInfo<glm::vec3>(VK_SHADER_STAGE_FRAGMENT_BIT);
       pipelineSetup.m_PolygonMode = VkPolygonMode::VK_POLYGON_MODE_LINE;
-      //pipelineSetup.m_CullMode = VkCullModeFlagBits::VK_CULL_MODE_NONE;
+      pipelineSetup.m_CullMode = VkCullModeFlagBits::VK_CULL_MODE_NONE;
 
       if (false == vkWin->createPipelineInfo(PipelineArray[A2H::E_PIPELINE_WIREFRAME], pipelineSetup))
       {
@@ -89,7 +91,52 @@ namespace A2H
   // ***************************************************************************
   // ***************************************************** HELPER FUNCTIONS ****
 
+  template <typename T>
+  static inline float sqrLen(T const& glmVec) noexcept { return glm::dot(glmVec, glmVec); }
 
+  template <typename T>
+  static inline float sqrDist(T const& glmVecA, T const& glmVecB) noexcept { T tmp{ glmVecB - glmVecA }; return glm::dot(tmp, tmp); }
+
+  /// @brief  Get opposite point from a sphere and a point.
+  ///         This function assumes the sphere has a squared radius.
+  ///         This function also ignores the possibility of p1 being s0.m_Center
+  ///         because it should only be called if dist is greater than radius.
+  /// @param s0 sphere input with square radius to save some time
+  /// @param p1 new extreme point of the sphere
+  /// @return a point on s0's circumference in the direction of s0 center from p1
+  static glm::vec3 getOppositePoint(MTG::Sphere const& s0, glm::vec3 p1) noexcept
+  {
+    p1 = s0.m_Center - p1;  // p1 is now the vector from the point to the center
+    return s0.m_Center + std::sqrtf(s0.m_Radius / sqrLen(p1)) * p1;
+  }
+
+  /// @brief  create a new sphere with radius data member being squared as this 
+  ///         is not the final sphere. It will be used for further computation.
+  ///         The arguments are taken by copy to be used as center and radius. 
+  /// @param inA one of 2 opposing sides of a sphere (the opposite of inB)
+  /// @param inB one of 2 opposing sides of a sphere (the opposite of inA)
+  /// @return new bounding sphere with a squared radius component
+  static MTG::Sphere createNewSquaredSphere(glm::vec3 inA, glm::vec3 inB) noexcept
+  {
+    inA = 0.5f * (inA + inB); // inA now holds the center
+    inB -= inA;               // inB now holds the radius vector
+    return MTG::Sphere{ inA, sqrLen(inB) };
+  }
+
+  /// @brief first pass to generate the ritter bounding sphere
+  /// @param inMins minimum points, 0, 1, 2 for x, y, z respectively
+  /// @param inMaxs maximum points, 0, 1, 2 for x, y, z respectively 
+  /// @return first squared sphere (radius component is squared)
+  static MTG::Sphere ritterFirstPass(glm::mat3 const& inMins, glm::mat3 const& inMaxs) noexcept
+  {
+    glm::vec3 SqrDistances{ sqrDist(inMins[0], inMaxs[0]), sqrDist(inMins[1], inMaxs[1]), sqrDist(inMins[2], inMaxs[2]) };
+    return
+    (
+      (SqrDistances.x > SqrDistances.y) ?
+      (SqrDistances.x > SqrDistances.z ? createNewSquaredSphere(inMins[0], inMaxs[0]) : createNewSquaredSphere(inMins[2], inMaxs[2])) :
+      (SqrDistances.y > SqrDistances.z ? createNewSquaredSphere(inMins[1], inMaxs[1]) : createNewSquaredSphere(inMins[2], inMaxs[2]))
+    );
+  }
 
   // ***************************************************************************
 
@@ -106,7 +153,9 @@ MTU::GS_Assignment_2::GS_Assignment_2(GameStateManager& rGSM) :
   m_DebugModels{  },
   m_Vertices{  },
   m_Models{  },
-  m_Objects{  }
+  m_Objects{  },
+  m_bDrawAABB{ false },
+  m_bDrawBS_Ritter{ false }
 {
   GS_PRINT_FUNCSIG();
 
@@ -173,11 +222,21 @@ void MTU::GS_Assignment_2::Init()
   // ****************************************** SCENE OBJECT INITIALIZATION ****
 
   m_Objects.clear();    // clear existing objects
-  m_Objects.reserve(2); // reserve memory for basic scene
+  m_Objects.reserve(3); // reserve memory for basic scene
 
   {
     A2H::Object& obj{ m_Objects.emplace_back() };
-    obj.m_Pos = glm::vec3{ 0.0f, 0.0f, 0.0f };
+    obj.m_Pos = glm::vec3{ -1.0f, 0.0f, 0.0f };
+    //obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
+    obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
+    obj.m_Scale = glm::vec3{ 1.0f, 1.0f, 1.0f };
+    obj.updateMatrices();
+    obj.m_Model = A2H::E_MODEL_4SPHERE;
+  }
+
+  {
+    A2H::Object& obj{ m_Objects.emplace_back() };
+    obj.m_Pos = glm::vec3{ 0.0f, 0.0f, -1.0f };
     //obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
     obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
     obj.m_Scale = glm::vec3{ 1.0f, 1.0f, 1.0f };
@@ -187,15 +246,32 @@ void MTU::GS_Assignment_2::Init()
 
   {
     A2H::Object& obj{ m_Objects.emplace_back() };
-    obj.m_Pos = glm::vec3{ 2.0f, 2.0f, 2.0f };
+    obj.m_Pos = glm::vec3{ 1.0f, 0.0f, 0.0f };
     //obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
-    obj.m_Rot = glm::vec3{ glm::radians(45.0f), glm::radians(45.0f), glm::radians(45.0f) };
+    obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
     obj.m_Scale = glm::vec3{ 1.0f, 1.0f, 1.0f };
     obj.updateMatrices();
     obj.m_Model = A2H::E_MODEL_LUCY_PRINCETON;
   }
 
+  {
+    A2H::Object& obj{ m_Objects.emplace_back() };
+    obj.m_Pos = glm::vec3{ 0.0f, 1.0f, 0.0f };
+    //obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
+    obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
+    obj.m_Scale = glm::vec3{ 1.0f, 1.0f, 1.0f };
+    obj.updateMatrices();
+    obj.m_Model = A2H::E_MODEL_STAR_DESTROYER;
+  }
+
   // ***************************************************************************
+  // ************************************************************ SET BOOLS ****
+
+  m_bDrawAABB = false;
+  m_bDrawBS_Ritter = false;
+
+  // ***************************************************************************
+
 }
 
 void MTU::GS_Assignment_2::Update(uint64_t dt)
@@ -208,6 +284,9 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
   // ***************************************************************************
   // **************************************************************** ImGui ****
   ImGui::ShowMetricsWindow();
+
+#define IMGUI_SAMELINE_TOOLTIP_HELPER(strA) ImGui::SameLine(); ImGui::TextUnformatted("(?)"); if (ImGui::IsItemHovered()) { ImGui::BeginTooltip(); ImGui::TextUnformatted(strA); ImGui::EndTooltip(); }
+#define IMGUI_SAMELINE_TOOLTIPV_HELPER(strA, ...) ImGui::SameLine(); ImGui::TextUnformatted("(?)"); if (ImGui::IsItemHovered()) { ImGui::BeginTooltip(); ImGui::Text(strA, __VA_ARGS__); ImGui::EndTooltip(); }
 
   if (ImGui::Begin("CS350Menu"))
   {
@@ -230,9 +309,21 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
     // CAMERA LIGHT COLOR
     ImGui::DragFloat3("Camera Light Color", &m_LightColor.x, 0.0125f, 0.0f, 1.0f);
 
-    // TODO: add checkboxes here for AABB/OBB/BS/BVH
+    if (ImGui::Button("Compute Bounding Volumes"))
+    {
+      for (auto& x : m_Objects)
+      {
+        x.updateMatrices(); // planning to make it only update on change
+        x.computeBoundingVolumes(m_Vertices); // compute all bounding volumes
+      }
+    }
+    IMGUI_SAMELINE_TOOLTIP_HELPER("Please generate bounding volumes before checking any draw boxes.\nBounding volumes only update upon user request.");
 
-    // TODO: add compute bounding volumes & compute BVH buttons
+    // AABB draw checkbox
+    ImGui::Checkbox("draw AABB", &m_bDrawAABB);
+    ImGui::Checkbox("draw BS Ritter", &m_bDrawBS_Ritter);
+
+    // TODO: add checkboxes here for AABB/OBB/BS/BVH
 
     // SCENE OBJECTS EDITOR (Add only, lazy to support remove)
     ImGui::Separator();
@@ -253,14 +344,7 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
 
           // Object Rotation
           ImGui::DragFloat3("Rot", &pObject->m_Rot.x, 0.0125f, -glm::pi<float>(), glm::pi<float>());
-          ImGui::SameLine();
-          ImGui::TextUnformatted("(?)");
-          if (ImGui::IsItemHovered())
-          {
-            ImGui::BeginTooltip();
-            ImGui::TextUnformatted("Rotation display: Pitch->Yaw->Roll\nEvaluation order: Roll->Yaw->Pitch");
-            ImGui::EndTooltip();
-          }
+          IMGUI_SAMELINE_TOOLTIP_HELPER("Rotation display: Pitch->Yaw->Roll\nEvaluation order: Roll->Yaw->Pitch");
 
           // Object Scale
           ImGui::DragFloat3("Scale", &pObject->m_Scale.x, 0.0125f, 0.125f, 1000.0f);
@@ -271,7 +355,7 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
 
             for (size_t j{ 0 }; j < A2H::E_NUM_MODELS; ++j)
             {
-              if (ImGui::Selectable(A2H::namesAss2Models[j]))
+              if (ImGui::Selectable(A2H::namesAss2Models[j], j == pObject->m_Model))
               {
                 pObject->m_Model = static_cast<A2H::enumAss2Models>(j);
                 break;
@@ -290,6 +374,9 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
     
   }
   ImGui::End();
+
+#undef IMGUI_SAMELINE_TOOLTIP_HELPER
+#undef IMGUI_SAMELINE_TOOLTIPV_HELPER
 
   // **************************************************************** ImGui ****
   // ***************************************************************************
@@ -350,22 +437,6 @@ void MTU::GS_Assignment_2::Draw()
   VkCommandBuffer FCB{ GSM.getFCB() };
   if (FCB == VK_NULL_HANDLE)return;
 
-  GSM.getVKWin()->createAndSetPipeline(m_Pipelines[A2H::E_PIPELINE_WIREFRAME]);
-
-  { // centered draw test
-    glm::vec3 tempColor{ 0.0f, 1.0f, 0.0f };
-    m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &m_Cam.m_W2V);
-    m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &tempColor);
-    m_DebugModels[A2H::E_DEBUGMODEL_SPHERE].draw(FCB);
-  }
-  { // offset red draw test
-    glm::vec3 tempColor{ 1.0f, 0.0f, 0.0f };
-    glm::mat4 xform{ m_Cam.m_W2V * glm::translate(glm::identity<glm::mat4>(), glm::vec3{ 2.0f, 2.0f, 2.0f }) };
-    m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
-    m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &tempColor);
-    m_DebugModels[A2H::E_DEBUGMODEL_CUBE].draw(FCB);
-  }
-
   GSM.getVKWin()->createAndSetPipeline(m_Pipelines[A2H::E_PIPELINE_BASICLIGHT]);
   m_Pipelines[A2H::E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 16, sizeof(glm::vec3), &m_LightColor);
   for (auto& x : m_Objects)
@@ -376,7 +447,38 @@ void MTU::GS_Assignment_2::Draw()
     m_Pipelines[A2H::E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &lightpos);
     m_Pipelines[A2H::E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
     m_Models[x.m_Model].draw(FCB);
+  }
 
+  GSM.getVKWin()->createAndSetPipeline(m_Pipelines[A2H::E_PIPELINE_WIREFRAME]);
+  { // temp, set fixed color. use color of bounding volume level later
+    glm::vec3 tempColor{ 0.0f, 1.0f, 0.0f };
+    m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &tempColor);
+  }
+
+  if (true == m_bDrawAABB)
+  {
+    for (auto& x : m_Objects)
+    {
+      glm::mat4 xform{ m_Cam.m_W2V * A2H::getAABBMat(x.m_AABB) };
+
+      // TODO color based on BVH level
+      m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
+      
+      m_DebugModels[A2H::E_DEBUGMODEL_CUBE].draw(FCB);
+    }
+  }
+
+  if (true == m_bDrawBS_Ritter)
+  {
+    for (auto& x : m_Objects)
+    {
+      glm::mat4 xform{ m_Cam.m_W2V * A2H::getBSMat(x.m_BS_Ritter) };
+
+      // TODO color based on BVH level
+      m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
+
+      m_DebugModels[A2H::E_DEBUGMODEL_SPHERE].draw(FCB);
+    }
   }
 
 }
@@ -409,5 +511,82 @@ void A2H::Object::updateMatrices()
   m_W2M = glm::translate(glm::mat4{ glm::mat3{(m_Scale.x ? 1.0f / m_Scale.x : 0.0f), 0.0f, 0.0f, 0.0f, (m_Scale.y ? 1.0f / m_Scale.y : 0.0f), 0.0f, 0.0f, 0.0f, (m_Scale.z ? 1.0f / m_Scale.z : 0.0f) } *glm::transpose(rotMat) }, -m_Pos);
 }
 
-// *****************************************************************************
+void A2H::Object::computeBoundingVolumes(MVA const& inModelVertexArray)
+{
+  // setup AABB to be computed at the same time as transformation
+  glm::mat3 cardinalMin // 0, 1, 2 is x, y, z min vecs respectively
+  {
+    glm::vec3{ std::numeric_limits<float>::max() },
+    glm::vec3{ std::numeric_limits<float>::max() },
+    glm::vec3{ std::numeric_limits<float>::max() }
+  };
+  glm::mat3 cardinalMax // 0, 1, 2 is x, y, z max vecs respectively
+  {
+    glm::vec3{ std::numeric_limits<float>::lowest() },
+    glm::vec3{ std::numeric_limits<float>::lowest() },
+    glm::vec3{ std::numeric_limits<float>::lowest() }
+  };
 
+  // transform vertices into a copy to compute all the BVs in world coords
+  VV vertices;
+  vertices.reserve(inModelVertexArray.size());
+  std::transform
+  (
+    inModelVertexArray[m_Model].begin(),
+    inModelVertexArray[m_Model].end(),
+    std::back_inserter(vertices),
+    [&](glm::vec3 const& inVertex)
+    {
+      glm::vec3 retval{ m_M2W * glm::vec4{ inVertex, 1.0f } };
+
+      // setup cardinal min max while we at it to use with ritter sphere and AABB
+      if (retval.x < cardinalMin[0].x)cardinalMin[0] = retval;
+      if (retval.x > cardinalMax[0].x)cardinalMax[0] = retval;
+      if (retval.y < cardinalMin[1].y)cardinalMin[1] = retval;
+      if (retval.y > cardinalMax[1].y)cardinalMax[1] = retval;
+      if (retval.z < cardinalMin[2].z)cardinalMin[2] = retval;
+      if (retval.z > cardinalMax[2].z)cardinalMax[2] = retval;
+
+      return retval;// NRVO since we want to do more with 1 loop
+    }
+  );
+
+  // AABB from cardinal min max
+  m_AABB.m_Min.x = cardinalMin[0].x;
+  m_AABB.m_Min.y = cardinalMin[1].y;
+  m_AABB.m_Min.z = cardinalMin[2].z;
+  m_AABB.m_Max.x = cardinalMax[0].x;
+  m_AABB.m_Max.y = cardinalMax[1].y;
+  m_AABB.m_Max.z = cardinalMax[2].z;
+
+  // Ritter sphere from cardinal min max
+  m_BS_Ritter = ritterFirstPass(cardinalMin, cardinalMax);
+  for (auto const& x : vertices)
+  {
+    if (sqrDist(x, m_BS_Ritter.m_Center) > m_BS_Ritter.m_Radius)
+    {
+      m_BS_Ritter = createNewSquaredSphere(getOppositePoint(m_BS_Ritter, x), x);
+    }
+  }
+  m_BS_Ritter.m_Radius = std::sqrtf(m_BS_Ritter.m_Radius);
+
+  // Compute other BVs?
+
+}
+
+// *****************************************************************************
+// ******************************************************** OTHER FUNCTIONS ****
+
+glm::mat4 A2H::getAABBMat(MTG::AABB const& inAABB) noexcept
+{ // extent is the scale, debug cube is normalized [-0.5f, 0.5f], thus full extent for scale.
+  glm::vec3 extent{ inAABB.m_Max - inAABB.m_Min }, center{ inAABB.m_Min + 0.5f * extent };
+  return glm::mat4{ extent.x, 0.0f, 0.0f, 0.0f, 0.0f, extent.y, 0.0f, 0.0f, 0.0f, 0.0f, extent.z, 0.0f, center.x, center.y, center.z, 1.0f };
+}
+
+glm::mat4 A2H::getBSMat(MTG::Sphere const& inBS) noexcept
+{ // normalized sphere model, diameter is 1 so take 2 * radius for matrix scale
+  float uniformScale{ 2.0f * inBS.m_Radius };
+  return glm::mat4{ uniformScale, 0.0f, 0.0f, 0.0f, 0.0f, uniformScale, 0.0f, 0.0f, 0.0f, 0.0f, uniformScale, 0.0f, inBS.m_Center.x, inBS.m_Center.y, inBS.m_Center.z, 1.0f };
+}
+
+// *****************************************************************************

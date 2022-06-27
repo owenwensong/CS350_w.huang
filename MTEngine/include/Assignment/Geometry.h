@@ -49,6 +49,8 @@ namespace MTG
     Plane(Plane const&) = default;
     Plane(Plane&&) = default;
 
+    Plane& operator=(Plane&&) = default;
+    Plane& operator=(Plane const&) = default;
 
     glm::vec3 m_Normal;
     float     m_Dist;
@@ -65,6 +67,9 @@ namespace MTG
 
     Triangle(Triangle const& RHS) = default;
     Triangle(Triangle&& RHS) = default;
+
+    Triangle& operator=(Triangle&&) = default;
+    Triangle& operator=(Triangle const&) = default;
 
 #pragma warning(suppress: 4201)// unnamed struct, exactly what I want.
     struct { Point3D v0, v1, v2; };
@@ -83,6 +88,9 @@ namespace MTG
     Sphere(Sphere const&) = default;
     Sphere(Sphere&&) = default;
 
+    Sphere& operator=(Sphere&&) = default;
+    Sphere& operator=(Sphere const&) = default;
+
 
     Point3D m_Center;
     float   m_Radius;
@@ -99,6 +107,9 @@ namespace MTG
 
     AABB(AABB const&) = default;
     AABB(AABB&&) = default;
+
+    AABB& operator=(AABB&&) = default;
+    AABB& operator=(AABB const&) = default;
 
     static inline AABB createFromCenterAndHalfExtents(Point3D inCenter, Vector3D inHalfExtents)
     {
@@ -121,6 +132,9 @@ namespace MTG
 
     Ray(Ray const&) = default;
     Ray(Ray&&) = default;
+
+    Ray& operator=(Ray&&) = default;
+    Ray& operator=(Ray const&) = default;
 
     Point3D   m_Point;
     Vector3D  m_Direction;
