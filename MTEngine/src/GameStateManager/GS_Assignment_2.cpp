@@ -154,6 +154,10 @@ namespace A2H
 
   // ***************************************************************************
 
+  static const glm::vec3 AABB_WireColor{ 0.0625f, 1.0f, 0.0625f };
+  static const glm::vec3 BS_Ritter_WireColor{ 0.0625f, 0.0625f, 1.0f };
+  static const glm::vec3 BS_Larsson_WireColor{ 1.0f, 1.0f, 0.0625f };
+
 }
 
 MTU::GS_Assignment_2::GS_Assignment_2(GameStateManager& rGSM) :
@@ -168,7 +172,7 @@ MTU::GS_Assignment_2::GS_Assignment_2(GameStateManager& rGSM) :
   m_Vertices{  },
   m_Models{  },
   m_Objects{  },
-  m_EPOS{ A2H::E_EPOS_FIRST },
+  m_EPOS{ A2H::E_EPOS_LAST },
   m_bDrawAABB{ false },
   m_bDrawBS_Ritter{ false },
   m_bDrawBS_Larsson{ false }
@@ -286,7 +290,7 @@ void MTU::GS_Assignment_2::Init()
   // ***************************************************************************
   // *************************************************** SET BOOLS AND MORE ****
 
-  m_EPOS = A2H::E_EPOS_FIRST;
+  m_EPOS = A2H::E_EPOS_LAST;
 
   m_bDrawAABB = false;
   m_bDrawBS_Ritter = false;
@@ -309,10 +313,11 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
 
 #define IMGUI_SAMELINE_TOOLTIP_HELPER(strA) ImGui::SameLine(); ImGui::TextUnformatted("(?)"); if (ImGui::IsItemHovered()) { ImGui::BeginTooltip(); ImGui::TextUnformatted(strA); ImGui::EndTooltip(); }
 #define IMGUI_SAMELINE_TOOLTIPV_HELPER(strA, ...) ImGui::SameLine(); ImGui::TextUnformatted("(?)"); if (ImGui::IsItemHovered()) { ImGui::BeginTooltip(); ImGui::Text(strA, __VA_ARGS__); ImGui::EndTooltip(); }
+#define IMGUI_COLOR_CHECKBOX_HELPER(strA, boolB, colorC) ImGui::ColorButton("color: " strA, ImVec4{ colorC.r, colorC.g, colorC.b, 1.0f }); ImGui::SameLine(); ImGui::Checkbox(strA, &boolB)
 
   if (ImGui::Begin("CS350Menu"))
   {
-    ImGui::TextUnformatted("Camera controls (not fine tuned but works)");
+    ImGui::TextUnformatted("Camera controls [HOLD RIGHT CLICK TO LOOK AROUND]");
 
     // SPEED CONTROL
     ImGui::DragFloat2("Speed / Shift multiplier", &m_CamMoveSpeed, 0.125f, 0.125f, 10.0f);
@@ -352,13 +357,13 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
         x.computeBoundingVolumes(m_Vertices); // compute all bounding volumes
       }
     }
-    IMGUI_SAMELINE_TOOLTIP_HELPER("Please generate bounding volumes before checking any draw boxes.\nBounding volumes only update upon user request.\nLarsson's bounding spheres will change EPOS only on recomputation");
+    IMGUI_SAMELINE_TOOLTIP_HELPER("Please generate bounding volumes before checking any draw boxes.\nBounding volumes only update upon user request.\nLarsson's bounding spheres will change EPOS only on recomputation\nInstead of choosing K fixed vertices, I use K random vertices,\nso recomputation of Larsson's sphere with the same K value may vary");
 
     // AABB draw checkbox
-    ImGui::Checkbox("draw AABB", &m_bDrawAABB);
-    ImGui::Checkbox("draw BS Ritter", &m_bDrawBS_Ritter);
-    ImGui::Checkbox("draw BS Larsson", &m_bDrawBS_Larsson);
-    IMGUI_SAMELINE_TOOLTIP_HELPER("Use the selector to choose which EPOS level to use,\nadjust EPOS K on an a per object level\nEPOS K will choose a random set of contiguous vertices.");
+    IMGUI_COLOR_CHECKBOX_HELPER("draw AABB", m_bDrawAABB, A2H::AABB_WireColor);
+    IMGUI_COLOR_CHECKBOX_HELPER("draw BS Ritter", m_bDrawBS_Ritter, A2H::BS_Ritter_WireColor);
+    IMGUI_COLOR_CHECKBOX_HELPER("draw BS Larsson", m_bDrawBS_Larsson, A2H::BS_Larsson_WireColor);
+    IMGUI_SAMELINE_TOOLTIP_HELPER("Use the selector to choose which EPOS level to use,\nadjust EPOS K on an a per object level\nEPOS K will choose a random set of contiguous vertices.\nFor consistency, the default value is max so no random values used.");
 
     // TODO: add checkboxes here for AABB/OBB/BS/BVH
 
@@ -436,6 +441,7 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
 
 #undef IMGUI_SAMELINE_TOOLTIP_HELPER
 #undef IMGUI_SAMELINE_TOOLTIPV_HELPER
+#undef IMGUI_COLOR_CHECKBOX_HELPER
 
   // **************************************************************** ImGui ****
   // ***************************************************************************
@@ -509,13 +515,10 @@ void MTU::GS_Assignment_2::Draw()
   }
 
   GSM.getVKWin()->createAndSetPipeline(m_Pipelines[A2H::E_PIPELINE_WIREFRAME]);
-  { // temp, set fixed color. use color of bounding volume level later
-    glm::vec3 tempColor{ 0.0f, 1.0f, 0.0f };
-    m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &tempColor);
-  }
 
   if (true == m_bDrawAABB)
   {
+    m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &A2H::AABB_WireColor);
     for (auto& x : m_Objects)
     {
       glm::mat4 xform{ m_Cam.m_W2V * A2H::getAABBMat(x.m_AABB) };
@@ -529,10 +532,7 @@ void MTU::GS_Assignment_2::Draw()
 
   if (true == m_bDrawBS_Ritter)
   {
-    { // Blueish Ritter's Bounding Spheres
-      glm::vec3 tempColor{ 0.125f, 0.125f, 1.0f };
-      m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &tempColor);
-    }
+    m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &A2H::BS_Ritter_WireColor);
     for (auto& x : m_Objects)
     {
       glm::mat4 xform{ m_Cam.m_W2V * A2H::getBSMat(x.m_BS_Ritter) };
@@ -546,10 +546,7 @@ void MTU::GS_Assignment_2::Draw()
 
   if (true == m_bDrawBS_Larsson)
   {
-    { // Yellowish Larsson's Bounding Spheres
-      glm::vec3 tempColor{ 1.0f, 1.0f, 0.125f };
-      m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &tempColor);
-    }
+    m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &A2H::BS_Larsson_WireColor);
     for (auto& x : m_Objects)
     {
       glm::mat4 xform{ m_Cam.m_W2V * A2H::getBSMat(x.m_BS_Larsson[m_EPOS])};
@@ -657,7 +654,7 @@ void A2H::Object::computeBoundingVolumes(MVA const& inModelVertexArray)
     size_t rt{ r + m_EposK };
     // r to rt find support points, 0 to r and rt to end expand circle
 
-    std::array<MTG::AABB, eposNumVecs[E_EPOS_LAST] + 3> checkedExtents;
+    std::array<MTG::AABB, eposNumVecs[E_EPOS_LAST]> checkedExtents;
     {
       std::array<glm::vec2, eposNumVecs[E_EPOS_LAST]> projExtents;
       std::fill(projExtents.begin(), projExtents.end(), glm::vec2{ std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest() });
@@ -665,30 +662,30 @@ void A2H::Object::computeBoundingVolumes(MVA const& inModelVertexArray)
       {
         glm::vec3 const& x{ vertices[ri] };
         // j is specially to access checkedExtents
-        for (size_t i{ 0 }, j{ 3 }, t{ eposNumVecs[E_EPOS_LAST] }; i < t; ++i, ++j)
+        for (size_t i{ 0 }, t{ eposNumVecs[E_EPOS_LAST] }; i < t; ++i)
         {
           float projDist{ glm::dot(x, eposVecs[i]) };
           if (projDist < projExtents[i].x)
           {
-            checkedExtents[j].m_Min = x;
+            checkedExtents[i].m_Min = x;
             projExtents[i].x = projDist;
           }
           if (projDist > projExtents[i].y)
           {
-            checkedExtents[j].m_Max = x;
+            checkedExtents[i].m_Max = x;
             projExtents[i].y = projDist;
           }
         }
         // done checking all directions for this vertex (^_;
       }
     }
-    // make copies of the cardinal direction extents for convenience
-    checkedExtents[0].m_Min = cardinalMin[0];
-    checkedExtents[0].m_Max = cardinalMax[0];
-    checkedExtents[1].m_Min = cardinalMin[1];
-    checkedExtents[1].m_Max = cardinalMax[1];
-    checkedExtents[2].m_Min = cardinalMin[2];
-    checkedExtents[2].m_Max = cardinalMax[2];
+    // got rid of reuse because it makes EPOS K calculations bias towards x y z
+    //checkedExtents[0].m_Min = cardinalMin[0];
+    //checkedExtents[0].m_Max = cardinalMax[0];
+    //checkedExtents[1].m_Min = cardinalMin[1];
+    //checkedExtents[1].m_Max = cardinalMax[1];
+    //checkedExtents[2].m_Min = cardinalMin[2];
+    //checkedExtents[2].m_Max = cardinalMax[2];
 
     // initial setup, reuse previous EPOS calculations
     {
@@ -699,7 +696,7 @@ void A2H::Object::computeBoundingVolumes(MVA const& inModelVertexArray)
 
       for (size_t i{ 0 }; i < E_NUM_EPOS; ++i)
       {
-        MTG::AABB const* pEnd{ checkedExtents.data() + eposNumVecs[i] + 3 };
+        MTG::AABB const* pEnd{ checkedExtents.data() + eposNumVecs[i] };
         m_BS_Larsson[i] = larsonFirstPass(pBegin, pEnd, pLargest, largestLen);
         pBegin = pEnd;
       }

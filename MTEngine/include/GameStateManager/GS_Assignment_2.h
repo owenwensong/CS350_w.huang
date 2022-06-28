@@ -57,7 +57,8 @@ namespace A2H // Assignment 2 Helper namespace
   enum enumAss2EPOS
   {
     E_EPOS_FIRST = 0,
-    E_EPOS_14 = E_EPOS_FIRST,
+    E_POS_6 = E_EPOS_FIRST,
+    E_EPOS_14,
     E_EPOS_26,
     E_EPOS_98,
 
@@ -76,20 +77,20 @@ namespace A2H // Assignment 2 Helper namespace
     "Star Destroyer"
   };
 
-  constexpr size_t eposNumVecs[E_NUM_EPOS]{ 4, 10, 46 };// all -3 because cardinal extents alr found.
+  constexpr size_t eposNumVecs[E_NUM_EPOS]{ 3, 7, 13, 49 };
 
-  constexpr const char* eposNames[E_NUM_EPOS]{ "EPOS-14", "EPOS-26", "EPOS-98" };
+  constexpr const char* eposNames[E_NUM_EPOS]{ "EPOS-6", "EPOS-14", "EPOS-26", "EPOS-98"};
 
 // Larsson Copy Paste Helper (to copy paste straight from the paper)
 #define LCPH(a, b, c) glm::vec3{ a, b, c }
   constexpr glm::vec3 eposVecs[]// this size should align with eposNumVecs[E_EPOS_LAST]
   {
-    //LCPH(1, 0, 0), LCPH(0, 1, 0), LCPH(0, 0, 1),
+    LCPH(1, 0, 0), LCPH(0, 1, 0),  LCPH(0, 0, 1),
     LCPH(1, 1, 1), LCPH(1, 1, -1), LCPH(1, -1, 1), LCPH(1, -1, -1),
-    LCPH(1, 1, 0), LCPH(1, -1, 0), LCPH(1, 0, 1), LCPH(1, 0, -1), LCPH(0, 1, 1), LCPH(0, 1, -1),
-    LCPH(0, 1, 2), LCPH(0, 2, 1), LCPH(1, 0, 2), LCPH(2, 0, 1), LCPH(1, 2, 0), LCPH(2, 1, 0), LCPH(0, 1, -2), LCPH(0, 2, -1), LCPH(1, 0, -2), LCPH(2, 0, -1), LCPH(1, -2, 0), LCPH(2, -1, 0),
-    LCPH(1, 1, 2), LCPH(2, 1, 1), LCPH(1, 2, 1), LCPH(1, -1, 2), LCPH(1, 1, -2), LCPH(1, -1, -2), LCPH(2, -1, 1), LCPH(2, 1, -1), LCPH(2, -1, -1), LCPH(1, -2, 1), LCPH(1, 2, -1), LCPH(1, -2, -1),
-    LCPH(2, 2, 1), LCPH(1, 2, 2), LCPH(2, 1, 2), LCPH(2, -2, 1), LCPH(2, 2, -1), LCPH(2, -2, -1), LCPH(1, -2, 2), LCPH(1, 2, -2), LCPH(1, -2, -2), LCPH(2, -1, 2), LCPH(2, 1, -2), LCPH(2, -1, -2)
+    LCPH(1, 1, 0), LCPH(1, -1, 0), LCPH(1, 0, 1),  LCPH(1, 0, -1), LCPH(0, 1, 1),  LCPH(0, 1, -1),
+    LCPH(0, 1, 2), LCPH(0, 2, 1),  LCPH(1, 0, 2),  LCPH(2, 0, 1),  LCPH(1, 2, 0),  LCPH(2, 1, 0),   LCPH(0, 1, -2), LCPH(0, 2, -1), LCPH(1, 0, -2),  LCPH(2, 0, -1), LCPH(1, -2, 0), LCPH(2, -1, 0),
+    LCPH(1, 1, 2), LCPH(2, 1, 1),  LCPH(1, 2, 1),  LCPH(1, -1, 2), LCPH(1, 1, -2), LCPH(1, -1, -2), LCPH(2, -1, 1), LCPH(2, 1, -1), LCPH(2, -1, -1), LCPH(1, -2, 1), LCPH(1, 2, -1), LCPH(1, -2, -1),
+    LCPH(2, 2, 1), LCPH(1, 2, 2),  LCPH(2, 1, 2),  LCPH(2, -2, 1), LCPH(2, 2, -1), LCPH(2, -2, -1), LCPH(1, -2, 2), LCPH(1, 2, -2), LCPH(1, -2, -2), LCPH(2, -1, 2), LCPH(2, 1, -2), LCPH(2, -1, -2)
   };
 #undef LCPH
 
