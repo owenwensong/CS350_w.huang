@@ -54,8 +54,19 @@ namespace A2H // Assignment 2 Helper namespace
     E_NUM_MODELS
   };
 
+  enum enumAss2EPOS
+  {
+    E_EPOS_FIRST = 0,
+    E_EPOS_14 = E_EPOS_FIRST,
+    E_EPOS_26,
+    E_EPOS_98,
+
+    E_EPOS_LAST = E_EPOS_98,
+    E_NUM_EPOS
+  };
+
 // *****************************************************************************
-// **************************************** STRING LITERALS FOR CONVENIENCE ****
+// *********************************************** LITERALS FOR CONVENIENCE ****
 
   constexpr const char* namesAss2Models[E_NUM_MODELS]
   {
@@ -64,6 +75,23 @@ namespace A2H // Assignment 2 Helper namespace
     "Lucy Princeton",
     "Star Destroyer"
   };
+
+  constexpr size_t eposNumVecs[E_NUM_EPOS]{ 4, 10, 46 };// all -3 because cardinal extents alr found.
+
+  constexpr const char* eposNames[E_NUM_EPOS]{ "EPOS-14", "EPOS-26", "EPOS-98" };
+
+// Larsson Copy Paste Helper (to copy paste straight from the paper)
+#define LCPH(a, b, c) glm::vec3{ a, b, c }
+  constexpr glm::vec3 eposVecs[]// this size should align with eposNumVecs[E_EPOS_LAST]
+  {
+    //LCPH(1, 0, 0), LCPH(0, 1, 0), LCPH(0, 0, 1),
+    LCPH(1, 1, 1), LCPH(1, 1, -1), LCPH(1, -1, 1), LCPH(1, -1, -1),
+    LCPH(1, 1, 0), LCPH(1, -1, 0), LCPH(1, 0, 1), LCPH(1, 0, -1), LCPH(0, 1, 1), LCPH(0, 1, -1),
+    LCPH(0, 1, 2), LCPH(0, 2, 1), LCPH(1, 0, 2), LCPH(2, 0, 1), LCPH(1, 2, 0), LCPH(2, 1, 0), LCPH(0, 1, -2), LCPH(0, 2, -1), LCPH(1, 0, -2), LCPH(2, 0, -1), LCPH(1, -2, 0), LCPH(2, -1, 0),
+    LCPH(1, 1, 2), LCPH(2, 1, 1), LCPH(1, 2, 1), LCPH(1, -1, 2), LCPH(1, 1, -2), LCPH(1, -1, -2), LCPH(2, -1, 1), LCPH(2, 1, -1), LCPH(2, -1, -1), LCPH(1, -2, 1), LCPH(1, 2, -1), LCPH(1, -2, -1),
+    LCPH(2, 2, 1), LCPH(1, 2, 2), LCPH(2, 1, 2), LCPH(2, -2, 1), LCPH(2, 2, -1), LCPH(2, -2, -1), LCPH(1, -2, 2), LCPH(1, 2, -2), LCPH(1, -2, -2), LCPH(2, -1, 2), LCPH(2, 1, -2), LCPH(2, -1, -2)
+  };
+#undef LCPH
 
 // *****************************************************************************
 // **************************** STRUCT FORWARD DECLARATIONS FOR CONVENIENCE ****
@@ -94,8 +122,10 @@ namespace A2H // Assignment 2 Helper namespace
 
     MTG::AABB m_AABB;
     MTG::Sphere m_BS_Ritter;
+    std::array<MTG::Sphere, E_NUM_EPOS> m_BS_Larsson;
 
     enumAss2Models m_Model;
+    int m_EposK;
 
     void updateMatrices();
     void computeBoundingVolumes(MVA const& inModelVertexArray);
@@ -148,8 +178,11 @@ namespace MTU
     A2H::MA  m_Models;       // assignment models
     A2H::OV  m_Objects;      // objects
 
+    unsigned char m_EPOS;
+
     bool m_bDrawAABB;
     bool m_bDrawBS_Ritter;
+    bool m_bDrawBS_Larsson;
     
   };
 }

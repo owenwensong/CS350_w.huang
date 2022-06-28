@@ -7,6 +7,7 @@
  * Copyright (C) 2022 DigiPen Institute of Technology. All rights reserved.
 *******************************************************************************/
 
+#include <random>
 #include <imgui.h>
 #include <iostream>
 #include <utility/ThreadTask.h>
@@ -107,7 +108,7 @@ namespace A2H
   static glm::vec3 getOppositePoint(MTG::Sphere const& s0, glm::vec3 p1) noexcept
   {
     p1 = s0.m_Center - p1;  // p1 is now the vector from the point to the center
-    return s0.m_Center + std::sqrtf(s0.m_Radius / sqrLen(p1)) * p1;
+    return s0.m_Center + std::sqrtf(s0.m_Radius / sqrLen(p1)) * p1; // own optimization, ask me for more info.
   }
 
   /// @brief  create a new sphere with radius data member being squared as this 
@@ -138,6 +139,19 @@ namespace A2H
     );
   }
 
+  static MTG::Sphere larsonFirstPass(MTG::AABB const* pData, MTG::AABB const* pEnd, MTG::AABB const*& pLargest, float& LargestLen)
+  {
+    for (; pData < pEnd; ++pData)
+    {
+      if (float currLen{ sqrDist(pData->m_Min, pData->m_Max) }; currLen > LargestLen)
+      {
+        pLargest = pData;
+        LargestLen = currLen;
+      }
+    }
+    return createNewSquaredSphere(pLargest->m_Min, pLargest->m_Max);
+  }
+
   // ***************************************************************************
 
 }
@@ -154,8 +168,10 @@ MTU::GS_Assignment_2::GS_Assignment_2(GameStateManager& rGSM) :
   m_Vertices{  },
   m_Models{  },
   m_Objects{  },
+  m_EPOS{ A2H::E_EPOS_FIRST },
   m_bDrawAABB{ false },
-  m_bDrawBS_Ritter{ false }
+  m_bDrawBS_Ritter{ false },
+  m_bDrawBS_Larsson{ false }
 {
   GS_PRINT_FUNCSIG();
 
@@ -230,7 +246,6 @@ void MTU::GS_Assignment_2::Init()
     //obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
     obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
     obj.m_Scale = glm::vec3{ 1.0f, 1.0f, 1.0f };
-    obj.updateMatrices();
     obj.m_Model = A2H::E_MODEL_4SPHERE;
   }
 
@@ -240,7 +255,6 @@ void MTU::GS_Assignment_2::Init()
     //obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
     obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
     obj.m_Scale = glm::vec3{ 1.0f, 1.0f, 1.0f };
-    obj.updateMatrices();
     obj.m_Model = A2H::E_MODEL_BUNNY;
   }
 
@@ -250,7 +264,6 @@ void MTU::GS_Assignment_2::Init()
     //obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
     obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
     obj.m_Scale = glm::vec3{ 1.0f, 1.0f, 1.0f };
-    obj.updateMatrices();
     obj.m_Model = A2H::E_MODEL_LUCY_PRINCETON;
   }
 
@@ -260,15 +273,24 @@ void MTU::GS_Assignment_2::Init()
     //obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
     obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
     obj.m_Scale = glm::vec3{ 1.0f, 1.0f, 1.0f };
-    obj.updateMatrices();
     obj.m_Model = A2H::E_MODEL_STAR_DESTROYER;
   }
 
+  for (auto& x : m_Objects)
+  {
+    x.m_EposK = static_cast<int>(m_Vertices[x.m_Model].size()); // full range by default
+    x.updateMatrices();                   // first matrix update
+    x.computeBoundingVolumes(m_Vertices); // first bounding volume calc
+  }
+
   // ***************************************************************************
-  // ************************************************************ SET BOOLS ****
+  // *************************************************** SET BOOLS AND MORE ****
+
+  m_EPOS = A2H::E_EPOS_FIRST;
 
   m_bDrawAABB = false;
   m_bDrawBS_Ritter = false;
+  m_bDrawBS_Larsson = false;
 
   // ***************************************************************************
 
@@ -309,19 +331,34 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
     // CAMERA LIGHT COLOR
     ImGui::DragFloat3("Camera Light Color", &m_LightColor.x, 0.0125f, 0.0f, 1.0f);
 
-    if (ImGui::Button("Compute Bounding Volumes"))
+    // LARSSON EPOS SELECTOR
+    if (ImGui::BeginCombo("BS Larsson EPOS", A2H::eposNames[m_EPOS]))
+    {
+      for (unsigned char i{ 0 }; i < A2H::E_NUM_EPOS; ++i)
+      {
+        if (ImGui::Selectable(A2H::eposNames[i], m_EPOS == i))
+        {
+          m_EPOS = i;
+        }
+      }
+      ImGui::EndCombo();
+    }
+
+    if (ImGui::Button("recompute Bounding Volumes"))
     {
       for (auto& x : m_Objects)
       {
-        x.updateMatrices(); // planning to make it only update on change
+        //x.updateMatrices(); // updates on change, can't click and change in this case
         x.computeBoundingVolumes(m_Vertices); // compute all bounding volumes
       }
     }
-    IMGUI_SAMELINE_TOOLTIP_HELPER("Please generate bounding volumes before checking any draw boxes.\nBounding volumes only update upon user request.");
+    IMGUI_SAMELINE_TOOLTIP_HELPER("Please generate bounding volumes before checking any draw boxes.\nBounding volumes only update upon user request.\nLarsson's bounding spheres will change EPOS only on recomputation");
 
     // AABB draw checkbox
     ImGui::Checkbox("draw AABB", &m_bDrawAABB);
     ImGui::Checkbox("draw BS Ritter", &m_bDrawBS_Ritter);
+    ImGui::Checkbox("draw BS Larsson", &m_bDrawBS_Larsson);
+    IMGUI_SAMELINE_TOOLTIP_HELPER("Use the selector to choose which EPOS level to use,\nadjust EPOS K on an a per object level\nEPOS K will choose a random set of contiguous vertices.");
 
     // TODO: add checkboxes here for AABB/OBB/BS/BVH
 
@@ -332,6 +369,9 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
 
       for (size_t i{ 0 }, t{ m_Objects.size() }; i < t; ++i)
       {
+
+        bool shouldUpdateTransform{ false };
+
         // quick and dirty ptr_id, idk if it will cause any leaks with
         // imgui when the vector is resized. Hopefully not, but this
         // isn't meant to be a long term framework, just for assignment 2.
@@ -340,14 +380,23 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
         if (ImGui::TreeNode(pObject, "Object %d", static_cast<int>(i)))
         {
           // Object Position
-          ImGui::DragFloat3("Pos", &pObject->m_Pos.x, 0.125f, -1000.0f, 1000.0f);
+          if (ImGui::DragFloat3("Pos", &pObject->m_Pos.x, 0.125f, -1000.0f, 1000.0f))
+          {
+            shouldUpdateTransform = true;
+          }
 
           // Object Rotation
-          ImGui::DragFloat3("Rot", &pObject->m_Rot.x, 0.0125f, -glm::pi<float>(), glm::pi<float>());
+          if (ImGui::DragFloat3("Rot", &pObject->m_Rot.x, 0.0125f, -glm::pi<float>(), glm::pi<float>()))
+          {
+            shouldUpdateTransform = true;
+          }
           IMGUI_SAMELINE_TOOLTIP_HELPER("Rotation display: Pitch->Yaw->Roll\nEvaluation order: Roll->Yaw->Pitch");
 
           // Object Scale
-          ImGui::DragFloat3("Scale", &pObject->m_Scale.x, 0.0125f, 0.125f, 1000.0f);
+          if (ImGui::DragFloat3("Scale", &pObject->m_Scale.x, 0.0125f, 0.125f, 1000.0f))
+          {
+            shouldUpdateTransform = true;
+          }
 
           // Object Model
           if (ImGui::BeginCombo("Model", A2H::namesAss2Models[pObject->m_Model]))
@@ -358,6 +407,7 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
               if (ImGui::Selectable(A2H::namesAss2Models[j], j == pObject->m_Model))
               {
                 pObject->m_Model = static_cast<A2H::enumAss2Models>(j);
+                pObject->m_EposK = static_cast<int>(m_Vertices[pObject->m_Model].size());
                 break;
               }
             }
@@ -365,8 +415,17 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
             ImGui::EndCombo();// objModel combo
           }
 
+          // Object eposK for Larsson's BS
+          if (int v_max{ static_cast<int>(m_Vertices[pObject->m_Model].size()) }; ImGui::DragInt("EPOS K", &pObject->m_EposK, 1.0f, 0, v_max))
+          {
+            if (pObject->m_EposK > v_max)pObject->m_EposK = v_max;// hard clamp
+          }
+
           ImGui::TreePop();// testy node pop
         }
+
+        if (shouldUpdateTransform)pObject->updateMatrices();
+
       }
 
     }
@@ -426,7 +485,7 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
   // ***************************************************************************
   // ******************************************************* Update objects ****
 
-  for (auto& x : m_Objects)x.updateMatrices();// check if imgui checkbox?
+  //for (auto& x : m_Objects)x.updateMatrices();// done only on imgui update
 
   // ***************************************************************************
 
@@ -470,9 +529,30 @@ void MTU::GS_Assignment_2::Draw()
 
   if (true == m_bDrawBS_Ritter)
   {
+    { // Blueish Ritter's Bounding Spheres
+      glm::vec3 tempColor{ 0.125f, 0.125f, 1.0f };
+      m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &tempColor);
+    }
     for (auto& x : m_Objects)
     {
       glm::mat4 xform{ m_Cam.m_W2V * A2H::getBSMat(x.m_BS_Ritter) };
+
+      // TODO color based on BVH level
+      m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
+
+      m_DebugModels[A2H::E_DEBUGMODEL_SPHERE].draw(FCB);
+    }
+  }
+
+  if (true == m_bDrawBS_Larsson)
+  {
+    { // Yellowish Larsson's Bounding Spheres
+      glm::vec3 tempColor{ 1.0f, 1.0f, 0.125f };
+      m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &tempColor);
+    }
+    for (auto& x : m_Objects)
+    {
+      glm::mat4 xform{ m_Cam.m_W2V * A2H::getBSMat(x.m_BS_Larsson[m_EPOS])};
 
       // TODO color based on BVH level
       m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
@@ -569,6 +649,87 @@ void A2H::Object::computeBoundingVolumes(MVA const& inModelVertexArray)
     }
   }
   m_BS_Ritter.m_Radius = std::sqrtf(m_BS_Ritter.m_Radius);
+
+  // Modified Larsson's sphere
+  {
+    std::mt19937 randomEngine{ std::random_device{}() };
+    size_t r{ std::uniform_int_distribution<size_t>{ 0, static_cast<size_t>(vertices.size() - m_EposK) }(randomEngine) };
+    size_t rt{ r + m_EposK };
+    // r to rt find support points, 0 to r and rt to end expand circle
+
+    std::array<MTG::AABB, eposNumVecs[E_EPOS_LAST] + 3> checkedExtents;
+    {
+      std::array<glm::vec2, eposNumVecs[E_EPOS_LAST]> projExtents;
+      std::fill(projExtents.begin(), projExtents.end(), glm::vec2{ std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest() });
+      for (size_t ri{ r }; ri < rt; ++ri)// finding support points off k random verts
+      {
+        glm::vec3 const& x{ vertices[ri] };
+        // j is specially to access checkedExtents
+        for (size_t i{ 0 }, j{ 3 }, t{ eposNumVecs[E_EPOS_LAST] }; i < t; ++i, ++j)
+        {
+          float projDist{ glm::dot(x, eposVecs[i]) };
+          if (projDist < projExtents[i].x)
+          {
+            checkedExtents[j].m_Min = x;
+            projExtents[i].x = projDist;
+          }
+          if (projDist > projExtents[i].y)
+          {
+            checkedExtents[j].m_Max = x;
+            projExtents[i].y = projDist;
+          }
+        }
+        // done checking all directions for this vertex (^_;
+      }
+    }
+    // make copies of the cardinal direction extents for convenience
+    checkedExtents[0].m_Min = cardinalMin[0];
+    checkedExtents[0].m_Max = cardinalMax[0];
+    checkedExtents[1].m_Min = cardinalMin[1];
+    checkedExtents[1].m_Max = cardinalMax[1];
+    checkedExtents[2].m_Min = cardinalMin[2];
+    checkedExtents[2].m_Max = cardinalMax[2];
+
+    // initial setup, reuse previous EPOS calculations
+    {
+      MTG::AABB const* pLargest{ checkedExtents.data() };
+      float largestLen{ sqrDist(pLargest->m_Min, pLargest->m_Max) };
+      MTG::AABB const* pBegin{ checkedExtents.data() + 1 };
+      
+
+      for (size_t i{ 0 }; i < E_NUM_EPOS; ++i)
+      {
+        MTG::AABB const* pEnd{ checkedExtents.data() + eposNumVecs[i] + 3 };
+        m_BS_Larsson[i] = larsonFirstPass(pBegin, pEnd, pLargest, largestLen);
+        pBegin = pEnd;
+      }
+    }
+
+    for (size_t ri{ 0 }; ri < rt; ++ri)
+    {
+      glm::vec3 const& x{ vertices[ri] };
+      for (auto& BS : m_BS_Larsson)
+      {
+        if (sqrDist(x, BS.m_Center) > BS.m_Radius)
+        {
+          BS = createNewSquaredSphere(getOppositePoint(BS, x), x);
+        }
+      }
+    }
+    for (size_t ri{ rt }, re{ vertices.size() }; ri < re; ++ri)
+    {
+      glm::vec3 const& x{ vertices[ri] };
+      for (auto& BS : m_BS_Larsson)
+      {
+        if (sqrDist(x, BS.m_Center) > BS.m_Radius)
+        {
+          BS = createNewSquaredSphere(getOppositePoint(BS, x), x);
+        }
+      }
+    }
+
+    for (auto& BS : m_BS_Larsson)BS.m_Radius = std::sqrtf(BS.m_Radius);
+  }
 
   // Compute other BVs?
 
