@@ -50,6 +50,11 @@ namespace A2H // Assignment 2 Helper namespace
     E_MODEL_BUNNY,
     E_MODEL_LUCY_PRINCETON,
     E_MODEL_STAR_DESTROYER,
+    E_MODEL_DRAGON,
+    E_MODEL_ARMADILLO,
+    E_MODEL_BLENDER_MONKEY,
+    E_MODEL_DISPLAY_CASE,
+    E_MODEL_QUESTION_MARK,
 
     E_NUM_MODELS
   };
@@ -71,10 +76,15 @@ namespace A2H // Assignment 2 Helper namespace
 
   constexpr const char* namesAss2Models[E_NUM_MODELS]
   {
-    "4Sphere",
-    "Bunny",
-    "Lucy Princeton",
-    "Star Destroyer"
+    "4Sphere [?]",
+    "Bunny [Stanford]",
+    "Lucy Princeton [Stanford]",
+    "Star Destroyer [?]",
+    "Dragon  [Stanford]",
+    "Armadillo [Stanford]",
+    "Monkey [Blender]",
+    "Display Stand [Owen Huang]",
+    "Question Mark [Owen Huang]"
   };
 
   constexpr size_t eposNumVecs[E_NUM_EPOS]{ 3, 7, 13, 49 };

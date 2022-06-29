@@ -102,6 +102,8 @@ void MTU::GameStateManager::Run()
       }
       inputs.update();
 
+      if (inputs.isTriggered(VK_F11))m_VKWindow->toggleFullscreen();
+
       uint64_t prevElapsed{ m_Timer.getElapsedCount() };
       m_Timer.stop();
 

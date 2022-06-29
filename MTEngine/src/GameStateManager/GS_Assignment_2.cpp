@@ -25,7 +25,7 @@ namespace A2H
   {
     bool retval{ true };
 #define A2H_LOAD_MODEL_HELPER(enumA, strB) if (false == DebugModelArray[enumA].load3DModelPositionOnly("../Assets/Meshes/" strB ".obj", true)) { printWarning("Failed to load model: " strB); retval = false; }
-    A2H_LOAD_MODEL_HELPER(E_DEBUGMODEL_SPHERE, "DebugMeshes/normalIcoSphere");
+    A2H_LOAD_MODEL_HELPER(E_DEBUGMODEL_SPHERE, "DebugMeshes/normalUVSphere");
     A2H_LOAD_MODEL_HELPER(E_DEBUGMODEL_CUBE, "DebugMeshes/normalCube");
     A2H_LOAD_MODEL_HELPER(E_DEBUGMODEL_POINT, "DebugMeshes/normalPoint");
 #undef A2H_LOAD_MODEL_HELPER
@@ -35,11 +35,16 @@ namespace A2H
   static bool loadModels(MVA& ModelVerticesArray, MA& ModelArray)
   {
     bool retval{ true };
-#define A2H_LOAD_MODEL_HELPER(enumA, strB) if (false == ModelArray[enumA].load3DNmlModel("../Assets/Meshes/" strB ".obj", ModelVerticesArray[enumA], true)) { printWarning("Failed to load model: " strB); retval = false; }
-    A2H_LOAD_MODEL_HELPER(E_MODEL_4SPHERE, "4Sphere");
-    A2H_LOAD_MODEL_HELPER(E_MODEL_BUNNY, "bunny");
-    A2H_LOAD_MODEL_HELPER(E_MODEL_LUCY_PRINCETON, "lucy_princeton");
-    A2H_LOAD_MODEL_HELPER(E_MODEL_STAR_DESTROYER, "starwars1");
+#define A2H_LOAD_MODEL_HELPER(enumA, strB) if (false == ModelArray[enumA].load3DNmlModel("../Assets/Meshes/" strB, ModelVerticesArray[enumA], true)) { printWarning("Failed to load model: " strB); retval = false; }
+    A2H_LOAD_MODEL_HELPER(E_MODEL_4SPHERE, "4Sphere.obj");
+    A2H_LOAD_MODEL_HELPER(E_MODEL_BUNNY, "bunny.obj");
+    A2H_LOAD_MODEL_HELPER(E_MODEL_LUCY_PRINCETON, "lucy_princeton.obj");
+    A2H_LOAD_MODEL_HELPER(E_MODEL_STAR_DESTROYER, "starwars1.obj");
+    A2H_LOAD_MODEL_HELPER(E_MODEL_DRAGON, "dragon_vrip_res2.ply");
+    A2H_LOAD_MODEL_HELPER(E_MODEL_ARMADILLO, "Armadillo.ply");
+    A2H_LOAD_MODEL_HELPER(E_MODEL_BLENDER_MONKEY, "BlenderMonkey.obj");
+    A2H_LOAD_MODEL_HELPER(E_MODEL_DISPLAY_CASE, "DisplayStand.obj");
+    A2H_LOAD_MODEL_HELPER(E_MODEL_QUESTION_MARK, "QuestionMark.obj");
 #undef A2H_LOAD_MODEL_HELPER
     return retval;
   }
@@ -226,8 +231,8 @@ void MTU::GS_Assignment_2::Init()
   // default constructed sensitivity
   m_Cam.m_Near = 0.000625f;
   m_Cam.m_Far = 25000.0f;
-  m_Cam.m_Pos = glm::vec3{ 0.0f, 0.0f, 2.0f };
-  m_Cam.m_Rot = glm::vec2{ glm::half_pi<float>(), 0.0f };
+  m_Cam.m_Pos = glm::vec3{ 0.0f, 1.0f, 3.5f };
+  m_Cam.m_Rot = glm::vec2{ glm::half_pi<float>(), -0.25f };
   {
     glm::ivec2 currCursorPos;// no need to initialize
     inputs.getCursorPos(currCursorPos.x, currCursorPos.y);
@@ -242,42 +247,106 @@ void MTU::GS_Assignment_2::Init()
   // ****************************************** SCENE OBJECT INITIALIZATION ****
 
   m_Objects.clear();    // clear existing objects
-  m_Objects.reserve(3); // reserve memory for basic scene
+  m_Objects.reserve(256); // reserve enough memory for anyone to play around with
 
+  for (int i{ 0 }; i < 3; ++i)
+  {
+    float zPos{ i * -2.0f };
+    // Left side display stands
+    {
+      A2H::Object& obj{ m_Objects.emplace_back() };
+      obj.m_Pos = glm::vec3{ -1.5f, -1.0f, zPos };
+      obj.m_Rot = glm::vec3{ 0.0f, glm::half_pi<float>() , 0.0f };
+      obj.m_Scale = glm::vec3{ 3.0f, 3.0f, 3.0f };
+      obj.m_Model = A2H::E_MODEL_DISPLAY_CASE;
+    }
+    // Right side display stands
+    {
+      A2H::Object& obj{ m_Objects.emplace_back() };
+      obj.m_Pos = glm::vec3{ 1.5f, -1.0f, zPos };
+      obj.m_Rot = glm::vec3{ 0.0f, -glm::half_pi<float>() , 0.0f };
+      obj.m_Scale = glm::vec3{ 3.0f, 3.0f, 3.0f };
+      obj.m_Model = A2H::E_MODEL_DISPLAY_CASE;
+    }
+  }
+
+  // adjust R3 display stand to be tipped over
+  {
+    A2H::Object& obj{ m_Objects.back() };
+    obj.m_Pos = glm::vec3{ 3.0f, -2.25f, -3.00f };
+    obj.m_Rot = glm::vec3{ 0.5f, 0.0f , -glm::half_pi<float>() };
+  }
+
+  // L1 Armadillo
   {
     A2H::Object& obj{ m_Objects.emplace_back() };
-    obj.m_Pos = glm::vec3{ -1.0f, 0.0f, 0.0f };
-    //obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
-    obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
+    obj.m_Pos = glm::vec3{ -1.5f, 0.25f, 0.0f };
+    obj.m_Rot = glm::vec3{ 0.0f, -glm::half_pi<float>(), 0.0f };
+    obj.m_Scale = glm::vec3{ 0.5f, 0.5f, 0.5f };
+    obj.m_Model = A2H::E_MODEL_ARMADILLO;
+  }
+
+  // R1 Bunny
+  {
+    A2H::Object& obj{ m_Objects.emplace_back() };
+    obj.m_Pos = glm::vec3{ 1.5f, 0.25f, 0.0f };
+    obj.m_Rot = glm::vec3{ 0.0f, -glm::half_pi<float>(), 0.0f };
+    obj.m_Scale = glm::vec3{ 0.5f, 0.5f, 0.5f };
+    obj.m_Model = A2H::E_MODEL_BUNNY;
+  }
+
+  // L2 4Sphere
+  {
+    A2H::Object& obj{ m_Objects.emplace_back() };
+    obj.m_Pos = glm::vec3{ -1.5f, 0.25f, -2.0f };
+    obj.m_Rot = glm::vec3{ 0.0f, glm::half_pi<float>(), 0.0f };
     obj.m_Scale = glm::vec3{ 1.0f, 1.0f, 1.0f };
     obj.m_Model = A2H::E_MODEL_4SPHERE;
   }
 
+  // R2 Star Destroyer
   {
     A2H::Object& obj{ m_Objects.emplace_back() };
-    obj.m_Pos = glm::vec3{ 0.0f, 0.0f, -1.0f };
-    //obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
-    obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
-    obj.m_Scale = glm::vec3{ 1.0f, 1.0f, 1.0f };
-    obj.m_Model = A2H::E_MODEL_BUNNY;
+    obj.m_Pos = glm::vec3{ 1.475f, 0.125f, -2.0f };
+    obj.m_Rot = glm::vec3{ 0.325f, -glm::quarter_pi<float>(), 0.0f};
+    obj.m_Scale = glm::vec3{ 0.5f, 0.5f, 0.5f };
+    obj.m_Model = A2H::E_MODEL_STAR_DESTROYER;
   }
 
+  // L3 Blender Monkey
   {
     A2H::Object& obj{ m_Objects.emplace_back() };
-    obj.m_Pos = glm::vec3{ 1.0f, 0.0f, 0.0f };
-    //obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
-    obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
-    obj.m_Scale = glm::vec3{ 1.0f, 1.0f, 1.0f };
+    obj.m_Pos = glm::vec3{ -1.5f, 0.25f, -4.0f };
+    obj.m_Rot = glm::vec3{ 0.0f, glm::half_pi<float>(), 0.0f };
+    obj.m_Scale = glm::vec3{ 0.5f, 0.5f, 0.5f };
+    obj.m_Model = A2H::E_MODEL_BLENDER_MONKEY;
+  }
+
+  // R3 Tipped over Question Mark
+  {
+    A2H::Object& obj{ m_Objects.emplace_back() };
+    obj.m_Pos = glm::vec3{ 4.0f, -2.2625f, -2.375f };
+    obj.m_Rot = glm::vec3{ 0.0f, -0.55f, -0.4f };
+    obj.m_Scale = glm::vec3{ 0.5f, 0.5f, 0.5f };
+    obj.m_Model = A2H::E_MODEL_QUESTION_MARK;
+  }
+
+  // C4 Lucy Princeton
+  {
+    A2H::Object& obj{ m_Objects.emplace_back() };
+    obj.m_Pos = glm::vec3{ 0.0f, 0.0f, -6.0f };
+    obj.m_Rot = glm::vec3{ 0.0f, 0.0f , 0.0f };
+    obj.m_Scale = glm::vec3{ 5.0f, 5.0f, 5.0f };
     obj.m_Model = A2H::E_MODEL_LUCY_PRINCETON;
   }
 
+  // L4 Dragon (not on a stand to be respectful)
   {
     A2H::Object& obj{ m_Objects.emplace_back() };
-    obj.m_Pos = glm::vec3{ 0.0f, 1.0f, 0.0f };
-    //obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
-    obj.m_Rot = glm::vec3{ 0.0f, 0.0f, 0.0f };
-    obj.m_Scale = glm::vec3{ 1.0f, 1.0f, 1.0f };
-    obj.m_Model = A2H::E_MODEL_STAR_DESTROYER;
+    obj.m_Pos = glm::vec3{ -6.375f, -0.5, -4.125 };
+    obj.m_Rot = glm::vec3{ 0.0f, glm::quarter_pi<float>(), 0.0f };
+    obj.m_Scale = glm::vec3{ 5.0f, 5.0f, 5.0f };
+    obj.m_Model = A2H::E_MODEL_DRAGON;
   }
 
   for (auto& x : m_Objects)
@@ -317,7 +386,12 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
 
   if (ImGui::Begin("CS350Menu"))
   {
-    ImGui::TextUnformatted("Camera controls [HOLD RIGHT CLICK TO LOOK AROUND]");
+    ImGui::TextUnformatted("Hover tooltips:");
+    IMGUI_SAMELINE_TOOLTIP_HELPER("These tooltips contain more information to use the program as intended");
+    ImGui::TextUnformatted("Window controls");
+    IMGUI_SAMELINE_TOOLTIPV_HELPER("F11: Fullscreen\n\n%s", "F1: Go to Assignment 1 state\nF2: Restart Assignment 2 state");
+    ImGui::TextUnformatted("Camera controls");
+    IMGUI_SAMELINE_TOOLTIP_HELPER("Right Mouse Button (hold): look around\nW: Move Forward\nA: Move Left\nS: Move Back\nD: Move Right\nSPACE: Move Upwards\nCONTROL: Move Downwards\nSHIFT (hold): Use speed multiplier");
 
     // SPEED CONTROL
     ImGui::DragFloat2("Speed / Shift multiplier", &m_CamMoveSpeed, 0.125f, 0.125f, 10.0f);
@@ -335,6 +409,8 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
 
     // CAMERA LIGHT COLOR
     ImGui::DragFloat3("Camera Light Color", &m_LightColor.x, 0.0125f, 0.0f, 1.0f);
+
+    ImGui::Separator();
 
     // LARSSON EPOS SELECTOR
     if (ImGui::BeginCombo("BS Larsson EPOS", A2H::eposNames[m_EPOS]))
@@ -357,7 +433,7 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
         x.computeBoundingVolumes(m_Vertices); // compute all bounding volumes
       }
     }
-    IMGUI_SAMELINE_TOOLTIP_HELPER("Please generate bounding volumes before checking any draw boxes.\nBounding volumes only update upon user request.\nLarsson's bounding spheres will change EPOS only on recomputation\nInstead of choosing K fixed vertices, I use K random vertices,\nso recomputation of Larsson's sphere with the same K value may vary");
+    IMGUI_SAMELINE_TOOLTIP_HELPER("Please recompute bounding volumes after making changes to the scene.\nBounding volumes only update upon user request.\nInstead of choosing K fixed vertices, I use K random vertices,\nso recomputation of Larsson's sphere with the same K value may vary");
 
     // AABB draw checkbox
     IMGUI_COLOR_CHECKBOX_HELPER("draw AABB", m_bDrawAABB, A2H::AABB_WireColor);
@@ -391,7 +467,7 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
           }
 
           // Object Rotation
-          if (ImGui::DragFloat3("Rot", &pObject->m_Rot.x, 0.0125f, -glm::pi<float>(), glm::pi<float>()))
+          if (ImGui::DragFloat3("Rot", &pObject->m_Rot.x, 0.0125f, -glm::two_pi<float>(), glm::two_pi<float>()))
           {
             shouldUpdateTransform = true;
           }
@@ -421,9 +497,9 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
           }
 
           // Object eposK for Larsson's BS
-          if (int v_max{ static_cast<int>(m_Vertices[pObject->m_Model].size()) }; ImGui::DragInt("EPOS K", &pObject->m_EposK, 1.0f, 0, v_max))
+          if (int v_max{ static_cast<int>(m_Vertices[pObject->m_Model].size()) }; ImGui::DragInt("EPOS K", &pObject->m_EposK, 1.0f, 1, v_max))
           {
-            if (pObject->m_EposK > v_max)pObject->m_EposK = v_max;// hard clamp
+            pObject->m_EposK = glm::clamp(pObject->m_EposK, 1, v_max);// hard clamp
           }
 
           ImGui::TreePop();// testy node pop
@@ -435,6 +511,24 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
 
     }
     ImGui::EndChild();// Objects child
+
+    {
+      bool shouldAddObject{ ImGui::Button("Add object") || inputs.isPressed(VK_SHIFT) ? inputs.isPressed(VK_E) : inputs.isTriggered(VK_E) };
+      IMGUI_SAMELINE_TOOLTIP_HELPER("HOTKEY E (hold shift to spam add)\nAdds an object directly in front of the camera.\nDo note that Bounding Volumes and Bounding Volume Hierarchies only update on user request.\nAs such, make sure to recompute both after adding an object.");
+      if (shouldAddObject)
+      {
+        std::mt19937 randomEngine{ std::random_device{}() };
+        std::uniform_real_distribution<float> distribution{ -glm::pi<float>(), glm::pi<float>() };
+
+        A2H::Object& obj{ m_Objects.emplace_back() };
+        obj.m_Pos = m_Cam.m_Pos + m_Cam.m_Fwd;
+        obj.m_Rot = glm::vec3{ distribution(randomEngine), distribution(randomEngine), distribution(randomEngine) };
+        obj.m_Scale = glm::vec3{ 1.0f, 1.0f, 1.0f };
+        obj.m_Model = A2H::E_MODEL_QUESTION_MARK;
+        obj.updateMatrices();
+        obj.m_EposK = static_cast<int>(m_Vertices[obj.m_Model].size());
+      }
+    }
     
   }
   ImGui::End();

@@ -174,11 +174,20 @@ void MTU::GS_Assignment_1::Update(uint64_t dt)
   float fdt{ dt * reciprocalFrequency };
   // ***************************************************************************
   // **************************************************************** ImGui ****
+  
+#define IMGUI_SAMELINE_TOOLTIP_HELPER(strA) ImGui::SameLine(); ImGui::TextUnformatted("(?)"); if (ImGui::IsItemHovered()) { ImGui::BeginTooltip(); ImGui::TextUnformatted(strA); ImGui::EndTooltip(); }
+#define IMGUI_SAMELINE_TOOLTIPV_HELPER(strA, ...) ImGui::SameLine(); ImGui::TextUnformatted("(?)"); if (ImGui::IsItemHovered()) { ImGui::BeginTooltip(); ImGui::Text(strA, __VA_ARGS__); ImGui::EndTooltip(); }
+
   ImGui::ShowMetricsWindow();
 
   if (ImGui::Begin("CS350Menu"))
   {
-    ImGui::TextUnformatted("Camera controls (not fine tuned but works)");
+    ImGui::TextUnformatted("Hover tooltips:");
+    IMGUI_SAMELINE_TOOLTIP_HELPER("These tooltips contain more information to use the program as intended");
+    ImGui::TextUnformatted("Window controls");
+    IMGUI_SAMELINE_TOOLTIPV_HELPER("F11: Fullscreen\n\n%s", "F1: Restart Assignment 1 state\nF2: Go to Assignment 2 state");
+    ImGui::TextUnformatted("Camera controls");
+    IMGUI_SAMELINE_TOOLTIP_HELPER("Right Mouse Button (hold): look around\nW: Move Forward\nA: Move Left\nS: Move Back\nD: Move Right\nSPACE: Move Upwards\nCONTROL: Move Downwards\nSHIFT (hold): Use speed multiplier");
     
     // SPEED CONTROL
     ImGui::DragFloat2("Speed / Shift multiplier", &m_CamMoveSpeed, 0.125f, 0.125f, 10.0f);
@@ -249,6 +258,9 @@ void MTU::GS_Assignment_1::Update(uint64_t dt)
   ImGui::End();
 
   m_bColliding = updateSwitch();
+
+#undef IMGUI_SAMELINE_TOOLTIP_HELPER
+#undef IMGUI_SAMELINE_TOOLTIPV_HELPER
 
   // **************************************************************** ImGui ****
   // ***************************************************************************
