@@ -163,6 +163,7 @@ namespace A2H
   static const glm::vec3 AABB_WireColor{ 0.0625f, 1.0f, 0.0625f };
   static const glm::vec3 BS_Ritter_WireColor{ 0.0625f, 0.0625f, 1.0f };
   static const glm::vec3 BS_Larsson_WireColor{ 1.0f, 1.0f, 0.0625f };
+  static const glm::vec3 BS_Pearson_WireColor{ 1.0f, 0.0625f, 0.0625f };
 
 }
 
@@ -181,7 +182,8 @@ MTU::GS_Assignment_2::GS_Assignment_2(GameStateManager& rGSM) :
   m_EPOS{ A2H::E_EPOS_LAST },
   m_bDrawAABB{ false },
   m_bDrawBS_Ritter{ false },
-  m_bDrawBS_Larsson{ false }
+  m_bDrawBS_Larsson{ false },
+  m_bDrawBS_Pearson{ false }
 {
   GS_PRINT_FUNCSIG();
 
@@ -374,6 +376,7 @@ void MTU::GS_Assignment_2::Init()
   m_bDrawAABB = false;
   m_bDrawBS_Ritter = false;
   m_bDrawBS_Larsson = false;
+  m_bDrawBS_Pearson = false;
 
   // ***************************************************************************
 
@@ -397,7 +400,7 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
   if (ImGui::Begin("CS350Menu"))
   {
     ImGui::TextUnformatted("Hover tooltips:");
-    IMGUI_SAMELINE_TOOLTIP_HELPER("These tooltips contain more information to use the program as intended");
+    IMGUI_SAMELINE_TOOLTIPV_HELPER("These (?) tooltips contain more information to use the program as intended\n\nExtra info:\n\nVertices: %d (total number of vertices in the scene)\nObjects RAM: %d B (Memory used to store per object pos, rot, scale, matrices, bounding volumes, etc)\nModels RAM:  %d B (Memory used to store positions to calculate BVs)\nModels VRAM: %d B (GPU Memory used to store model data)", static_cast<int>(getNumSceneVertices()), static_cast<int>(getObjectsRam()), static_cast<int>(getModelsRAM()), static_cast<int>(getModelsVRAM()));
     ImGui::TextUnformatted("Window controls");
     IMGUI_SAMELINE_TOOLTIPV_HELPER("F11: Fullscreen\n\n%s", "F1: Go to Assignment 1 state\nF2: Restart Assignment 2 state");
     ImGui::TextUnformatted("Camera controls");
@@ -450,11 +453,14 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
     IMGUI_COLOR_CHECKBOX_HELPER("draw BS Ritter", m_bDrawBS_Ritter, A2H::BS_Ritter_WireColor);
     IMGUI_COLOR_CHECKBOX_HELPER("draw BS Larsson", m_bDrawBS_Larsson, A2H::BS_Larsson_WireColor);
     IMGUI_SAMELINE_TOOLTIP_HELPER("Use the selector to choose which EPOS level to use,\nadjust EPOS K on an a per object level\nEPOS K will choose a random set of contiguous vertices.\nFor consistency, the default value is max so no random values used.");
+    IMGUI_COLOR_CHECKBOX_HELPER("draw BS Pearson (PCA)", m_bDrawBS_Pearson, A2H::BS_Pearson_WireColor);
 
     // TODO: add checkboxes here for AABB/OBB/BS/BVH
 
     // SCENE OBJECTS EDITOR (Add only, lazy to support remove)
     ImGui::Separator();
+    ImGui::Text("Scene editor [%d objects]", static_cast<int>(m_Objects.size()));
+    IMGUI_SAMELINE_TOOLTIP_HELPER("You can edit the scene here.\nEdits are on a per object level.\nPlease recompute BV and BVH after making changes.");
     if (ImGui::BeginChild("Objects", ImVec2{ 0.0f, 7.5f * ImGui::GetFrameHeightWithSpacing() }, true))
     {
 
@@ -662,6 +668,20 @@ void MTU::GS_Assignment_2::Draw()
     }
   }
 
+  if (true == m_bDrawBS_Pearson)
+  {
+    m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &A2H::BS_Pearson_WireColor);
+    for (auto& x : m_Objects)
+    {
+      glm::mat4 xform{ m_Cam.m_W2V * A2H::getBSMat(x.m_BS_Pearson) };
+
+      // TODO color based on BVH level
+      m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
+
+      m_DebugModels[A2H::E_DEBUGMODEL_SPHERE].draw(FCB);
+    }
+  }
+
 }
 
 void MTU::GS_Assignment_2::Free()
@@ -832,8 +852,44 @@ void A2H::Object::computeBoundingVolumes(MVA const& inModelVertexArray)
     for (auto& BS : m_BS_Larsson)BS.m_Radius = std::sqrtf(BS.m_Radius);
   }
 
-  // Compute other BVs?
+  // Principal Component Analysis
 
+  // TODO: calculate it, this is just to make sure it draws something
+  m_BS_Pearson = m_BS_Larsson[E_EPOS_98];
+
+}
+
+size_t MTU::GS_Assignment_2::getNumSceneVertices() const noexcept
+{
+  size_t retval{ 0 };
+  for (auto const& x : m_Objects)retval += m_Vertices[x.m_Model].size();
+  return retval;
+}
+
+size_t MTU::GS_Assignment_2::getObjectsRam() const noexcept
+{
+  return m_Objects.capacity() * sizeof(m_Objects);
+}
+
+size_t MTU::GS_Assignment_2::getModelsRAM() const noexcept
+{
+  size_t retval{ 0 };
+  for (auto const& x : m_Vertices)retval += x.size() * sizeof(decltype(m_Vertices)::value_type::value_type);
+  return retval;
+}
+
+size_t MTU::GS_Assignment_2::getModelsVRAM() const noexcept
+{
+  size_t retval{ 0 };
+  for (auto const& x : m_Models)
+  {
+    retval +=
+    (
+      static_cast<size_t>(x.m_Buffer_Vertex.m_Settings.m_Count) * static_cast<size_t>(x.m_Buffer_Vertex.m_Settings.m_ElemSize) + 
+      static_cast<size_t>(x.m_Buffer_Index.m_Settings.m_Count) * static_cast<size_t>(x.m_Buffer_Index.m_Settings.m_ElemSize)
+    );
+  }
+  return retval;
 }
 
 // *****************************************************************************

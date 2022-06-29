@@ -183,7 +183,7 @@ void MTU::GS_Assignment_1::Update(uint64_t dt)
   if (ImGui::Begin("CS350Menu"))
   {
     ImGui::TextUnformatted("Hover tooltips:");
-    IMGUI_SAMELINE_TOOLTIP_HELPER("These tooltips contain more information to use the program as intended");
+    IMGUI_SAMELINE_TOOLTIP_HELPER("These (?) tooltips contain more information to use the program as intended");
     ImGui::TextUnformatted("Window controls");
     IMGUI_SAMELINE_TOOLTIPV_HELPER("F11: Fullscreen\n\n%s", "F1: Restart Assignment 1 state\nF2: Go to Assignment 2 state");
     ImGui::TextUnformatted("Camera controls");

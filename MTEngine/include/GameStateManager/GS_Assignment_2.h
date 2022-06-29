@@ -3,7 +3,19 @@
  * @author  Owen Huang Wensong  [390008220]  (w.huang@digipen.edu)
  * @date    16 JUN 2022
  * @brief   Gamestate for assignment 2
- *
+ * 
+ *          The bounding sphere types have been named after the creator.
+ *          The Larsson's sphere algorithm has been modified however.
+ * 
+ *          BS_Ritter:  Jack Ritter [1990]
+ *                      An Efficient Bounding Sphere
+ * 
+ *          BS_Larsson: Thomas Larsson [2008]
+ *                      Fast and Tight fitting bounding spheres
+ * 
+ *          BS_Pearson: Karl Pearson [1901]
+ *                      Principal Component Analysis
+ * 
  * Copyright (C) 2022 DigiPen Institute of Technology. All rights reserved.
 *******************************************************************************/
 
@@ -136,6 +148,7 @@ namespace A2H // Assignment 2 Helper namespace
     MTG::AABB m_AABB;
     MTG::Sphere m_BS_Ritter;
     std::array<MTG::Sphere, E_NUM_EPOS> m_BS_Larsson;
+    MTG::Sphere m_BS_Pearson;
 
     enumAss2Models m_Model;
     int m_EposK;
@@ -175,7 +188,14 @@ namespace MTU
 
   private:
 
+    // get the number of vertices of all objects in the scene
+    size_t getNumSceneVertices() const noexcept;
 
+    size_t getObjectsRam() const noexcept;
+    
+    size_t getModelsRAM() const noexcept;
+
+    size_t getModelsVRAM() const noexcept;
 
   private:
     windowsInput& inputs;
@@ -196,6 +216,7 @@ namespace MTU
     bool m_bDrawAABB;
     bool m_bDrawBS_Ritter;
     bool m_bDrawBS_Larsson;
+    bool m_bDrawBS_Pearson;
     
   };
 }
