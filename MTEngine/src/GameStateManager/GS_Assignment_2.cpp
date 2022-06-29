@@ -45,6 +45,7 @@ namespace A2H
     A2H_LOAD_MODEL_HELPER(E_MODEL_BLENDER_MONKEY, "BlenderMonkey.obj");
     A2H_LOAD_MODEL_HELPER(E_MODEL_DISPLAY_CASE, "DisplayStand.obj");
     A2H_LOAD_MODEL_HELPER(E_MODEL_QUESTION_MARK, "QuestionMark.obj");
+    A2H_LOAD_MODEL_HELPER(E_MODEL_TRASH_BIN, "Trashbin.obj");
 #undef A2H_LOAD_MODEL_HELPER
     return retval;
   }
@@ -343,10 +344,19 @@ void MTU::GS_Assignment_2::Init()
   // L4 Dragon (not on a stand to be respectful)
   {
     A2H::Object& obj{ m_Objects.emplace_back() };
-    obj.m_Pos = glm::vec3{ -6.375f, -0.5, -4.125 };
+    obj.m_Pos = glm::vec3{ -6.375f, -0.5f, -4.125f };
     obj.m_Rot = glm::vec3{ 0.0f, glm::quarter_pi<float>(), 0.0f };
     obj.m_Scale = glm::vec3{ 5.0f, 5.0f, 5.0f };
     obj.m_Model = A2H::E_MODEL_DRAGON;
+  }
+
+  // Misc Trash bin
+  {
+    A2H::Object& obj{ m_Objects.emplace_back() };
+    obj.m_Pos = glm::vec3{ 2.375f, -2.0f, 0.125f };
+    obj.m_Rot = glm::vec3{ 0.0f, glm::pi<float>(), 0.0f};
+    obj.m_Scale = glm::vec3{ 1.0f, 1.0f, 1.0f };
+    obj.m_Model = A2H::E_MODEL_TRASH_BIN;
   }
 
   for (auto& x : m_Objects)

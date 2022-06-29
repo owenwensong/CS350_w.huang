@@ -55,6 +55,7 @@ namespace A2H // Assignment 2 Helper namespace
     E_MODEL_BLENDER_MONKEY,
     E_MODEL_DISPLAY_CASE,
     E_MODEL_QUESTION_MARK,
+    E_MODEL_TRASH_BIN,
 
     E_NUM_MODELS
   };
@@ -84,7 +85,8 @@ namespace A2H // Assignment 2 Helper namespace
     "Armadillo [Stanford]",
     "Monkey [Blender]",
     "Display Stand [Owen Huang]",
-    "Question Mark [Owen Huang]"
+    "Question Mark [Owen Huang]",
+    "Trash Bin [Owen Huang]"
   };
 
   constexpr size_t eposNumVecs[E_NUM_EPOS]{ 3, 7, 13, 49 };
