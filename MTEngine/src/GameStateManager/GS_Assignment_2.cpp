@@ -339,8 +339,8 @@ namespace A2H
 
       // leaving them separate for now in case I want to reference/change
 
-      // Volume Heuristic
-      float VOCost{ LSet.getOverlapPercent(RSet) };
+      // Volume Heuristic (affects it only a bit but for the better)
+      float VOCost{ 1.0f - LSet.getOverlapPercent(RSet) };
 
       // Surface Area Heuristic
       float SACost{ reciprocalParentSA * (i * LSet.getSurfaceArea() + (numObjects - i) * RSet.getSurfaceArea()) };
@@ -351,7 +351,7 @@ namespace A2H
     size_t retval{ 0 };
     for (size_t i{ 1 }, t{ heuristicCosts.size() }; i < t; ++i)
     {
-      if (heuristicCosts[i] < heuristicCosts[0])retval = i;
+      if (heuristicCosts[i] < heuristicCosts[retval])retval = i;
     }
 
     return retval + 1;// +1 because the heuristic split starts at 1
