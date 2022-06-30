@@ -10,6 +10,7 @@
 #include <random>
 #include <imgui.h>
 #include <iostream>
+#include <algorithm>
 #include <utility/ThreadTask.h>
 #include <Assignment/Geometry.h>
 #include <GameStateManager/GS_Assignment_2.h>
@@ -159,11 +160,266 @@ namespace A2H
   }
 
   // ***************************************************************************
+  // ***************************************************** BOUNDING VOLUMES ****
+
+  LBS createLarssonSpheres(std::vector<glm::vec3> const& inPoints, size_t eposK)
+  {
+    eposK = std::min(eposK, inPoints.size());
+    LBS retval;
+
+    std::mt19937 randomEngine{ std::random_device{}() };
+    size_t r{ std::uniform_int_distribution<size_t>{ 0, static_cast<size_t>(inPoints.size() - eposK) }(randomEngine) };
+    size_t rt{ r + eposK };
+    // r to rt find support points, 0 to r and rt to end expand circle
+
+    std::array<MTG::AABB, eposNumVecs[E_EPOS_LAST]> checkedExtents;
+    {
+      std::array<glm::vec2, eposNumVecs[E_EPOS_LAST]> projExtents;
+      std::fill(projExtents.begin(), projExtents.end(), glm::vec2{ std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest() });
+      for (size_t ri{ r }; ri < rt; ++ri)// finding support points off k random verts
+      {
+        glm::vec3 const& x{ inPoints[ri] };
+        // j is specially to access checkedExtents
+        for (size_t i{ 0 }, t{ eposNumVecs[E_EPOS_LAST] }; i < t; ++i)
+        {
+          float projDist{ glm::dot(x, eposVecs[i]) };
+          if (projDist < projExtents[i].x)
+          {
+            checkedExtents[i].m_Min = x;
+            projExtents[i].x = projDist;
+          }
+          if (projDist > projExtents[i].y)
+          {
+            checkedExtents[i].m_Max = x;
+            projExtents[i].y = projDist;
+          }
+        }
+        // done checking all directions for this vertex (^_;
+      }
+    }
+
+    // initial setup, reuse previous EPOS calculations
+    {
+      MTG::AABB const* pLargest{ checkedExtents.data() };
+      float largestLen{ sqrDist(pLargest->m_Min, pLargest->m_Max) };
+      MTG::AABB const* pBegin{ checkedExtents.data() + 1 };
+
+
+      for (size_t i{ 0 }; i < E_NUM_EPOS; ++i)
+      {
+        MTG::AABB const* pEnd{ checkedExtents.data() + eposNumVecs[i] };
+        retval[i] = larsonFirstPass(pBegin, pEnd, pLargest, largestLen);
+        pBegin = pEnd;
+      }
+    }
+
+    for (size_t ri{ 0 }; ri < rt; ++ri)
+    {
+      glm::vec3 const& x{ inPoints[ri] };
+      for (auto& BS : retval)
+      {
+        if (sqrDist(x, BS.m_Center) > BS.m_Radius)
+        {
+          BS = createNewSquaredSphere(getOppositePoint(BS, x), x);
+        }
+      }
+    }
+    for (size_t ri{ rt }, re{ inPoints.size() }; ri < re; ++ri)
+    {
+      glm::vec3 const& x{ inPoints[ri] };
+      for (auto& BS : retval)
+      {
+        if (sqrDist(x, BS.m_Center) > BS.m_Radius)
+        {
+          BS = createNewSquaredSphere(getOppositePoint(BS, x), x);
+        }
+      }
+    }
+
+    for (auto& BS : retval)BS.m_Radius = std::sqrtf(BS.m_Radius);
+
+    return retval;
+  }
+
+  // ***************************************************************************
+  // ****************************************** BOUNDING VOLUME HIERARCHIES ****
+  
+  MTG::AABB computeSetAABB(OV const& objVec, Object::Proxy* pObjects, size_t numObjects)
+  {
+    MTG::AABB retval{ glm::vec3{ std::numeric_limits<float>::max() }, glm::vec3{ std::numeric_limits<float>::lowest() } };
+    for (size_t i{ 0 }; i < numObjects; ++i)
+    { // assume all AABB are computed correctly
+      MTG::AABB const& iAABB{ objVec[pObjects[i]].m_AABB };
+#define LAZYHELPER(a, b) if (iAABB. a b retval. a)retval. a = iAABB. a;
+      LAZYHELPER(m_Min.x, < );
+      LAZYHELPER(m_Min.y, < );
+      LAZYHELPER(m_Min.z, < );
+      LAZYHELPER(m_Max.x, > );
+      LAZYHELPER(m_Max.y, > );
+      LAZYHELPER(m_Max.z, > );
+#undef LAZYHELPER
+    }
+    return retval;
+  }
+
+  void ComputeNodeAABB(TreeNode* pNode, OV const& objVec, Object::Proxy* pObjects, size_t numObjects)
+  {
+    if (0 != numObjects)pNode->m_BV.asAABB = computeSetAABB(objVec, pObjects, numObjects);
+  }
+
+  template <size_t maxDepth>
+  bool floorFnTopDown(size_t numObjects, size_t currDepth)
+  {
+    if constexpr (0 == maxDepth)return 1 == numObjects;// unbound
+    if constexpr (0 != maxDepth)return 1 == numObjects || maxDepth < currDepth;
+  }
+
+  template <typename T>
+  T looseMedians(std::vector<T>& inVec)// will partially sort the vec, lazy 100
+  {
+    auto nth{ inVec.begin() + inVec.size() / 2 };
+    std::nth_element(inVec.begin(), nth, inVec.begin() + inVec.size());
+    return *nth;
+  }
+
+  int getAxisLargestSpreadFromAABB(MTG::AABB const& inAABB)
+  {
+    glm::vec3 diff{ inAABB.m_Max - inAABB.m_Min };
+    return (diff.x > diff.y) ? (diff.z > diff.x ? 2 : 0) : (diff.z > diff.y ? 2 : 1);
+  }
+
+  //glm::vec3 getMedianCardinalsFromAABB(OV const& objVec, Object::Proxy* pObjects, size_t numObjects, int inAxis)
+  //{
+  //  assert(inAxis >= 0 && inAxis < 3);
+
+  //  std::vector<float> floatVec;
+  //  floatVec.reserve(2 * numObjects);// twice for AABB min max
+  //  for (size_t i{ 0 }; i < numObjects; ++i)
+  //  {
+  //    MTG::AABB const& iAABB{ objVec[pObjects[i]].m_AABB };
+  //    floatVec.emplace_back(iAABB.m_Min.x);
+  //    floatVec.emplace_back(iAABB.m_Max.x);
+  //  }
+  //  glm::vec3 retval{ 0.0f, 0.0f, 0.0f };
+  //  retval[inAxis] = looseMedians(floatVec);
+  //  return retval;
+  //}
+
+  size_t topDownSplitPlanePartitionAABB(TreeNode* pNode, OV const& objVec, Object::Proxy* pObjects, size_t numObjects)
+  {
+    if (2 == numObjects)return 1;// early skip since only 2
+
+    // Step 1: Calculate the axis to split the volumes
+    int axisLargestSpread{ getAxisLargestSpreadFromAABB(pNode->m_BV.asAABB) };
+
+    // Step 2: Sort the volumes based on the axis to split (I sort by AABB min here)
+    std::sort
+    (
+      pObjects,
+      pObjects + numObjects,
+      [&](Object::Proxy inA, Object::Proxy inB)
+      {
+        return objVec[inA].m_AABB.m_Min[axisLargestSpread] < objVec[inB].m_AABB.m_Min[axisLargestSpread];
+      }
+    );
+
+    // Step 3: Divide the space into two subsets
+    std::vector<float> heuristicCosts;
+    heuristicCosts.reserve(numObjects - 1);
+
+    //float reciprocalParentVo{ pNode->m_BV.asAABB.getVolume() };
+    //if (reciprocalParentVo)reciprocalParentVo = 1.0f / reciprocalParentVo;
+    float reciprocalParentSA{ pNode->m_BV.asAABB.getSurfaceArea() };
+    if (reciprocalParentSA)reciprocalParentSA = 1.0f / reciprocalParentSA;
+
+    for (size_t i{ 1 }, t{ numObjects }; i < t; ++i)
+    {
+      MTG::AABB LSet{ computeSetAABB(objVec, pObjects, i) };
+      MTG::AABB RSet{ computeSetAABB(objVec, pObjects + i, numObjects - i) };
+
+      // leaving them separate for now in case I want to reference/change
+
+      // Volume Heuristic
+      float VOCost{ LSet.getOverlapPercent(RSet) };
+
+      // Surface Area Heuristic
+      float SACost{ reciprocalParentSA * (i * LSet.getSurfaceArea() + (numObjects - i) * RSet.getSurfaceArea()) };
+
+      heuristicCosts.emplace_back(VOCost + SACost);
+    }
+
+    size_t retval{ 0 };
+    for (size_t i{ 1 }, t{ heuristicCosts.size() }; i < t; ++i)
+    {
+      if (heuristicCosts[i] < heuristicCosts[0])retval = i;
+    }
+
+    return retval + 1;// +1 because the heuristic split starts at 1
+  }
+
+  template <typename computeBVFnType, typename floorFnType, typename partitionFnType>
+  TreeNode* constructTopDown(OV const& objVec, Object::Proxy* pObjects, size_t numObjects, computeBVFnType computeBVFn, floorFnType floorFn, partitionFnType partitionFn, size_t currDepth = 0)
+  {
+    TreeNode* pNode{ new TreeNode };
+
+    computeBVFn(pNode, objVec, pObjects, numObjects);
+    pNode->m_bIsLeaf = floorFn(numObjects, currDepth);
+
+    if (pNode->m_bIsLeaf)
+    {
+      pNode->m_Union.asLeaf.m_pProxies = pObjects;
+      pNode->m_Union.asLeaf.m_Size = numObjects;
+    }
+    else
+    {
+      size_t k{ partitionFn(pNode, objVec, pObjects, numObjects) };
+      pNode->m_Union.asInternal.m_LChild = constructTopDown(objVec, pObjects, k, computeBVFn, floorFn, partitionFn, currDepth + 1);
+      pNode->m_Union.asInternal.m_RChild = constructTopDown(objVec, pObjects + k, numObjects - k, computeBVFn, floorFn, partitionFn, currDepth + 1);
+    }
+
+    return pNode;
+  }
+
+  void destroyTree(TreeNode* pTree)
+  {
+    if (nullptr == pTree)return;
+    if (false == pTree->m_bIsLeaf)
+    {
+      destroyTree(pTree->m_Union.asInternal.m_LChild);
+      destroyTree(pTree->m_Union.asInternal.m_RChild);
+    }
+    delete pTree;
+  }
+
+  template <typename funcType>
+  void depthFirst(TreeNode* pTree, funcType pFn, size_t currDepth = 0)
+  {
+    if (nullptr == pTree)return;
+
+    pFn(pTree, currDepth);
+
+    if (pTree->m_bIsLeaf)return;
+    depthFirst(pTree->m_Union.asInternal.m_LChild, pFn, currDepth + 1);
+    depthFirst(pTree->m_Union.asInternal.m_RChild, pFn, currDepth + 1);
+  }
+  
+  // ***************************************************************************
 
   static const glm::vec3 AABB_WireColor{ 0.0625f, 1.0f, 0.0625f };
   static const glm::vec3 BS_Ritter_WireColor{ 0.0625f, 0.0625f, 1.0f };
   static const glm::vec3 BS_Larsson_WireColor{ 1.0f, 1.0f, 0.0625f };
   static const glm::vec3 BS_Pearson_WireColor{ 1.0f, 0.0625f, 0.0625f };
+  static const std::array<glm::vec3, 8> BVH_WireColors  // 7 + 1 (any farther levels just use the +1)
+  {
+    glm::vec3{ 0.0f, 0.75f, 0.5f },
+    glm::vec3{ 1.0f, 0.25f, 0.25f },
+    glm::vec3{ 1.0f, 0.75f, 0.125f },
+    glm::vec3{ 0.75f, 0.75f, 0.0f },
+    glm::vec3{ 0.5f, 0.75f, 0.25f },
+    glm::vec3{ 0.75f, 0.25f, 0.75f },
+    glm::vec3{ 0.25f, 0.25f, 0.75f },
+    glm::vec3{ 0.5f, 0.75f, 1.0f }  // This will repeat for a lot of levels
+  };
 
 }
 
@@ -179,11 +435,13 @@ MTU::GS_Assignment_2::GS_Assignment_2(GameStateManager& rGSM) :
   m_Vertices{  },
   m_Models{  },
   m_Objects{  },
+  m_pBVH_AABB{ nullptr },
   m_EPOS{ A2H::E_EPOS_LAST },
   m_bDrawAABB{ false },
   m_bDrawBS_Ritter{ false },
   m_bDrawBS_Larsson{ false },
-  m_bDrawBS_Pearson{ false }
+  m_bDrawBS_Pearson{ false },
+  m_bDrawBVH_AABB{ false }
 {
   GS_PRINT_FUNCSIG();
 
@@ -368,6 +626,8 @@ void MTU::GS_Assignment_2::Init()
     x.computeBoundingVolumes(m_Vertices); // first bounding volume calc
   }
 
+  computeBVHs();
+
   // ***************************************************************************
   // *************************************************** SET BOOLS AND MORE ****
 
@@ -377,6 +637,8 @@ void MTU::GS_Assignment_2::Init()
   m_bDrawBS_Ritter = false;
   m_bDrawBS_Larsson = false;
   m_bDrawBS_Pearson = false;
+
+  m_bDrawBVH_AABB = false;
 
   // ***************************************************************************
 
@@ -438,15 +700,16 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
       ImGui::EndCombo();
     }
 
-    if (ImGui::Button("recompute Bounding Volumes"))
+    if (ImGui::Button("recompute BVs and BVHs"))
     {
       for (auto& x : m_Objects)
       {
         //x.updateMatrices(); // updates on change, can't click and change in this case
         x.computeBoundingVolumes(m_Vertices); // compute all bounding volumes
       }
+      computeBVHs();
     }
-    IMGUI_SAMELINE_TOOLTIP_HELPER("Please recompute bounding volumes after making changes to the scene.\nBounding volumes only update upon user request.\nInstead of choosing K fixed vertices, I use K random vertices,\nso recomputation of Larsson's sphere with the same K value may vary");
+    IMGUI_SAMELINE_TOOLTIP_HELPER("Recomputes the Bounding Volumes and Bounding Volume Heirarchies.\nPlease recompute after making changes to the scene.\nBVs and BVHs only update upon user request.\nInstead of choosing K fixed vertices, I use K random vertices,\nso recomputation of Larsson's sphere with the same K value may vary");
 
     // AABB draw checkbox
     IMGUI_COLOR_CHECKBOX_HELPER("draw AABB", m_bDrawAABB, A2H::AABB_WireColor);
@@ -455,7 +718,8 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
     IMGUI_SAMELINE_TOOLTIP_HELPER("Use the selector to choose which EPOS level to use,\nadjust EPOS K on an a per object level\nEPOS K will choose a random set of contiguous vertices.\nFor consistency, the default value is max so no random values used.");
     IMGUI_COLOR_CHECKBOX_HELPER("draw BS Pearson (PCA)", m_bDrawBS_Pearson, A2H::BS_Pearson_WireColor);
 
-    // TODO: add checkboxes here for AABB/OBB/BS/BVH
+    // BVH draw checkboxes
+    ImGui::Checkbox("draw AABB BVHs", &m_bDrawBVH_AABB);
 
     // SCENE OBJECTS EDITOR (Add only, lazy to support remove)
     ImGui::Separator();
@@ -633,7 +897,6 @@ void MTU::GS_Assignment_2::Draw()
     {
       glm::mat4 xform{ m_Cam.m_W2V * A2H::getAABBMat(x.m_AABB) };
 
-      // TODO color based on BVH level
       m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
       
       m_DebugModels[A2H::E_DEBUGMODEL_CUBE].draw(FCB);
@@ -647,7 +910,6 @@ void MTU::GS_Assignment_2::Draw()
     {
       glm::mat4 xform{ m_Cam.m_W2V * A2H::getBSMat(x.m_BS_Ritter) };
 
-      // TODO color based on BVH level
       m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
 
       m_DebugModels[A2H::E_DEBUGMODEL_SPHERE].draw(FCB);
@@ -661,7 +923,6 @@ void MTU::GS_Assignment_2::Draw()
     {
       glm::mat4 xform{ m_Cam.m_W2V * A2H::getBSMat(x.m_BS_Larsson[m_EPOS])};
 
-      // TODO color based on BVH level
       m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
 
       m_DebugModels[A2H::E_DEBUGMODEL_SPHERE].draw(FCB);
@@ -675,11 +936,31 @@ void MTU::GS_Assignment_2::Draw()
     {
       glm::mat4 xform{ m_Cam.m_W2V * A2H::getBSMat(x.m_BS_Pearson) };
 
-      // TODO color based on BVH level
       m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
 
       m_DebugModels[A2H::E_DEBUGMODEL_SPHERE].draw(FCB);
     }
+  }
+
+  if (true == m_bDrawBVH_AABB)
+  {
+    A2H::depthFirst
+    (
+      m_pBVH_AABB,
+      [&](A2H::TreeNode* pNode, size_t currDepth)// color based on BVH level
+      {
+        if (nullptr == pNode || pNode->m_bIsLeaf)return;
+
+        glm::mat4 xform{ m_Cam.m_W2V * A2H::getAABBMat(pNode->m_BV.asAABB) };
+
+        currDepth = std::min(currDepth, A2H::BVH_WireColors.size() - 1);
+        m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &A2H::BVH_WireColors[currDepth]);
+        m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
+
+        m_DebugModels[A2H::E_DEBUGMODEL_CUBE].draw(FCB);
+      }
+    );
+
   }
 
 }
@@ -687,6 +968,8 @@ void MTU::GS_Assignment_2::Draw()
 void MTU::GS_Assignment_2::Free()
 {
   GS_PRINT_FUNCSIG();
+
+  destroyBVHs();
 }
 
 MTU::GS_Assignment_2::~GS_Assignment_2()
@@ -696,6 +979,21 @@ MTU::GS_Assignment_2::~GS_Assignment_2()
   for (auto& x : m_Pipelines)GSM.getVKWin()->destroyPipelineInfo(x);
   for (auto& x : m_DebugModels)x.destroyModel();
   for (auto& x : m_Models)x.destroyModel();
+}
+
+void MTU::GS_Assignment_2::computeBVHs()
+{
+  destroyBVHs();
+  m_ObjectProxies.reserve(m_Objects.size());
+  for (size_t i{ 0 }, t{ m_Objects.size() }; i < t; ++i)m_ObjectProxies.emplace_back(i);
+  m_pBVH_AABB = A2H::constructTopDown(m_Objects, m_ObjectProxies.data(), m_ObjectProxies.size(), A2H::ComputeNodeAABB, A2H::floorFnTopDown<7>, A2H::topDownSplitPlanePartitionAABB);
+}
+
+void MTU::GS_Assignment_2::destroyBVHs()
+{
+  A2H::destroyTree(m_pBVH_AABB);
+  m_pBVH_AABB = nullptr;
+  m_ObjectProxies.clear();
 }
 
 // *****************************************************************************
@@ -772,88 +1070,10 @@ void A2H::Object::computeBoundingVolumes(MVA const& inModelVertexArray)
   m_BS_Ritter.m_Radius = std::sqrtf(m_BS_Ritter.m_Radius);
 
   // Modified Larsson's sphere
-  {
-    std::mt19937 randomEngine{ std::random_device{}() };
-    size_t r{ std::uniform_int_distribution<size_t>{ 0, static_cast<size_t>(vertices.size() - m_EposK) }(randomEngine) };
-    size_t rt{ r + m_EposK };
-    // r to rt find support points, 0 to r and rt to end expand circle
-
-    std::array<MTG::AABB, eposNumVecs[E_EPOS_LAST]> checkedExtents;
-    {
-      std::array<glm::vec2, eposNumVecs[E_EPOS_LAST]> projExtents;
-      std::fill(projExtents.begin(), projExtents.end(), glm::vec2{ std::numeric_limits<float>::max(), std::numeric_limits<float>::lowest() });
-      for (size_t ri{ r }; ri < rt; ++ri)// finding support points off k random verts
-      {
-        glm::vec3 const& x{ vertices[ri] };
-        // j is specially to access checkedExtents
-        for (size_t i{ 0 }, t{ eposNumVecs[E_EPOS_LAST] }; i < t; ++i)
-        {
-          float projDist{ glm::dot(x, eposVecs[i]) };
-          if (projDist < projExtents[i].x)
-          {
-            checkedExtents[i].m_Min = x;
-            projExtents[i].x = projDist;
-          }
-          if (projDist > projExtents[i].y)
-          {
-            checkedExtents[i].m_Max = x;
-            projExtents[i].y = projDist;
-          }
-        }
-        // done checking all directions for this vertex (^_;
-      }
-    }
-    // got rid of reuse because it makes EPOS K calculations bias towards x y z
-    //checkedExtents[0].m_Min = cardinalMin[0];
-    //checkedExtents[0].m_Max = cardinalMax[0];
-    //checkedExtents[1].m_Min = cardinalMin[1];
-    //checkedExtents[1].m_Max = cardinalMax[1];
-    //checkedExtents[2].m_Min = cardinalMin[2];
-    //checkedExtents[2].m_Max = cardinalMax[2];
-
-    // initial setup, reuse previous EPOS calculations
-    {
-      MTG::AABB const* pLargest{ checkedExtents.data() };
-      float largestLen{ sqrDist(pLargest->m_Min, pLargest->m_Max) };
-      MTG::AABB const* pBegin{ checkedExtents.data() + 1 };
-      
-
-      for (size_t i{ 0 }; i < E_NUM_EPOS; ++i)
-      {
-        MTG::AABB const* pEnd{ checkedExtents.data() + eposNumVecs[i] };
-        m_BS_Larsson[i] = larsonFirstPass(pBegin, pEnd, pLargest, largestLen);
-        pBegin = pEnd;
-      }
-    }
-
-    for (size_t ri{ 0 }; ri < rt; ++ri)
-    {
-      glm::vec3 const& x{ vertices[ri] };
-      for (auto& BS : m_BS_Larsson)
-      {
-        if (sqrDist(x, BS.m_Center) > BS.m_Radius)
-        {
-          BS = createNewSquaredSphere(getOppositePoint(BS, x), x);
-        }
-      }
-    }
-    for (size_t ri{ rt }, re{ vertices.size() }; ri < re; ++ri)
-    {
-      glm::vec3 const& x{ vertices[ri] };
-      for (auto& BS : m_BS_Larsson)
-      {
-        if (sqrDist(x, BS.m_Center) > BS.m_Radius)
-        {
-          BS = createNewSquaredSphere(getOppositePoint(BS, x), x);
-        }
-      }
-    }
-
-    for (auto& BS : m_BS_Larsson)BS.m_Radius = std::sqrtf(BS.m_Radius);
-  }
+  m_BS_Larsson = createLarssonSpheres(vertices, m_EposK);
 
   // Principal Component Analysis
-
+  
   // TODO: calculate it, this is just to make sure it draws something
   m_BS_Pearson = m_BS_Larsson[E_EPOS_98];
 

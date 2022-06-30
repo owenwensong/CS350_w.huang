@@ -111,6 +111,11 @@ namespace MTG
     AABB& operator=(AABB&&) = default;
     AABB& operator=(AABB const&) = default;
 
+    float getVolume() const noexcept;
+    float getSurfaceArea() const noexcept;
+    float getOverlapVolume(AABB const& otherAABB) const noexcept;
+    float getOverlapPercent(AABB const& otherAABB) const noexcept;// percent based off smaller volume
+
     static inline AABB createFromCenterAndHalfExtents(Point3D inCenter, Vector3D inHalfExtents)
     {
       return AABB{ inCenter - inHalfExtents, inCenter + inHalfExtents };

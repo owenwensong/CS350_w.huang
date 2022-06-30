@@ -17,6 +17,35 @@ MTG::Plane::Plane(glm::vec3 inNormal, glm::vec3 point) :
 
 }
 
+float MTG::AABB::getVolume() const noexcept
+{
+  glm::vec3 extents{ m_Max - m_Min };
+  return extents.x * extents.y * extents.z;
+}
+
+float MTG::AABB::getSurfaceArea() const noexcept
+{
+  glm::vec3 extents{ m_Max - m_Min };
+  return 2.0f * (extents.x * (extents.y + extents.z) + extents.y * extents.z);
+}
+
+float MTG::AABB::getOverlapVolume(AABB const& otherAABB) const noexcept
+{
+  float xOverlap{ std::min(m_Max.x, otherAABB.m_Max.x) - std::max(m_Min.x, otherAABB.m_Min.x) };
+  if (0 > xOverlap)return 0.0f;
+  float yOverlap{ std::min(m_Max.y, otherAABB.m_Max.y) - std::max(m_Min.y, otherAABB.m_Min.y) };
+  if (0 > yOverlap)return 0.0f;
+  float zOverlap{ std::min(m_Max.z, otherAABB.m_Max.z) - std::max(m_Min.z, otherAABB.m_Min.z) };
+  if (0 > zOverlap)return 0.0f;
+  return xOverlap * yOverlap * zOverlap;
+}
+
+float MTG::AABB::getOverlapPercent(AABB const& otherAABB) const noexcept
+{
+  float overlapVolume{ getOverlapVolume(otherAABB) };
+  return overlapVolume ? overlapVolume / std::min(getVolume(), otherAABB.getVolume()) : 0.0f;
+}
+
 namespace localHelper
 {
   static inline float DistanceSquared3D(MTG::Point3D const& p0, MTG::Point3D const& p1)

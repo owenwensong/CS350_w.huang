@@ -132,6 +132,7 @@ namespace A2H // Assignment 2 Helper namespace
   using  VV = std::vector<glm::vec3>;                     // Vertex vector
   using MVA = std::array<VV, E_NUM_MODELS>;               // Model Vertices Array
   using  OV = std::vector<Object>;                        // Object vector
+  using LBS = std::array<MTG::Sphere, E_NUM_EPOS>;        // Larsson's Bounding Spheres
 
 // *****************************************************************************
 // ************************************************ STRUCTS FOR CONVENIENCE ****
@@ -145,9 +146,9 @@ namespace A2H // Assignment 2 Helper namespace
     glm::mat4 m_M2W;
     glm::mat4 m_W2M;
 
-    MTG::AABB m_AABB;
+    MTG::AABB   m_AABB;
     MTG::Sphere m_BS_Ritter;
-    std::array<MTG::Sphere, E_NUM_EPOS> m_BS_Larsson;
+    LBS         m_BS_Larsson;
     MTG::Sphere m_BS_Pearson;
 
     enumAss2Models m_Model;
@@ -156,7 +157,40 @@ namespace A2H // Assignment 2 Helper namespace
     void updateMatrices();
     void computeBoundingVolumes(MVA const& inModelVertexArray);
 
+    using Proxy = size_t; // ID (offset of object into OV)
+
   };
+
+  struct TreeNode
+  {
+    union nodeType
+    {
+      struct asLeaf
+      {
+        Object::Proxy* m_pProxies;// pointer to an Object::Proxy vector element
+        size_t         m_Size;    // number of elements being pointed to
+      } asLeaf;
+      struct asInternal
+      {
+        TreeNode* m_LChild;
+        TreeNode* m_RChild;
+      } asInternal;
+    } m_Union;
+
+    union bvType
+    {
+      MTG::AABB   asAABB;
+      MTG::Sphere asSphere;
+    } m_BV;
+
+    bool m_bIsLeaf;
+  };
+
+// *****************************************************************************
+// *****************************************************************************
+// *********************************************** TYPEDEFS FOR CONVENIENCE ****
+
+  using OPV = std::vector<Object::Proxy>;        // Object Proxy Vector
 
 // *****************************************************************************
 // ********************************************** FUNCTIONS FOR CONVENIENCE ****
@@ -197,6 +231,10 @@ namespace MTU
 
     size_t getModelsVRAM() const noexcept;
 
+    void computeBVHs();
+
+    void destroyBVHs();
+
   private:
     windowsInput& inputs;
 
@@ -210,6 +248,9 @@ namespace MTU
     A2H::MVA m_Vertices;     // model raw vertices
     A2H::MA  m_Models;       // assignment models
     A2H::OV  m_Objects;      // objects
+    A2H::OPV m_ObjectProxies;// object proxies for BVH
+
+    A2H::TreeNode* m_pBVH_AABB;
 
     unsigned char m_EPOS;
 
@@ -217,6 +258,8 @@ namespace MTU
     bool m_bDrawBS_Ritter;
     bool m_bDrawBS_Larsson;
     bool m_bDrawBS_Pearson;
+
+    bool m_bDrawBVH_AABB;
     
   };
 }
