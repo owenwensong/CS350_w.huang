@@ -189,19 +189,24 @@ void MTU::GS_Assignment_1::Update(uint64_t dt)
     ImGui::TextUnformatted("Camera controls");
     IMGUI_SAMELINE_TOOLTIP_HELPER("Right Mouse Button (hold): look around\nW: Move Forward\nA: Move Left\nS: Move Back\nD: Move Right\nSPACE: Move Upwards\nCONTROL: Move Downwards\nSHIFT (hold): Use speed multiplier");
     
-    // SPEED CONTROL
-    ImGui::DragFloat2("Speed / Shift multiplier", &m_CamMoveSpeed, 0.125f, 0.125f, 10.0f);
+    if (ImGui::TreeNode("Camera Settings"))
+    {
+      // SPEED CONTROL
+      ImGui::DragFloat2("Speed / Shift multiplier", &m_CamMoveSpeed, 0.125f, 0.125f, 10.0f);
 
-    // FOV CONTROL
-    ImGui::DragFloat("FOV", &m_Cam.m_FOV, glm::radians(1.0f), glm::radians(50.0f), glm::radians(150.0f));
-    ImGui::SameLine();
-    ImGui::Text("%.2f degrees", glm::degrees(m_Cam.m_FOV));
+      // FOV CONTROL
+      ImGui::DragFloat("FOV", &m_Cam.m_FOV, glm::radians(1.0f), glm::radians(50.0f), glm::radians(150.0f));
+      ImGui::SameLine();
+      ImGui::Text("%.2f degrees", glm::degrees(m_Cam.m_FOV));
 
-    // SENSITIVITY CONTROL
-    ImGui::DragFloat("Sensitivity", &m_Cam.m_Sensitivity, 0.0000125f, 0.00078125f, 0.0625f);
+      // SENSITIVITY CONTROL
+      ImGui::DragFloat("Sensitivity", &m_Cam.m_Sensitivity, 0.0000125f, 0.00078125f, 0.0625f);
 
-    // NEAR AND FAR PLANES
-    ImGui::DragFloat2("Near/Far", &m_Cam.m_Near, 0.125f, 0.0000125f, 12500.0f);
+      // NEAR AND FAR PLANES
+      ImGui::DragFloat2("Near/Far", &m_Cam.m_Near, 0.125f, 0.0000125f, 25000.0f);
+
+      ImGui::TreePop();
+    }
 
     ImGui::Separator();
 

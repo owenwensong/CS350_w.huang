@@ -754,22 +754,27 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
     ImGui::TextUnformatted("Camera controls");
     IMGUI_SAMELINE_TOOLTIP_HELPER("Right Mouse Button (hold): look around\nW: Move Forward\nA: Move Left\nS: Move Back\nD: Move Right\nSPACE: Move Upwards\nCONTROL: Move Downwards\nSHIFT (hold): Use speed multiplier");
 
-    // SPEED CONTROL
-    ImGui::DragFloat2("Speed / Shift multiplier", &m_CamMoveSpeed, 0.125f, 0.125f, 10.0f);
+    if (ImGui::TreeNode("Camera Settings"))
+    {
+      // SPEED CONTROL
+      ImGui::DragFloat2("Speed / Shift multiplier", &m_CamMoveSpeed, 0.125f, 0.125f, 10.0f);
 
-    // FOV CONTROL
-    ImGui::DragFloat("FOV", &m_Cam.m_FOV, glm::radians(1.0f), glm::radians(50.0f), glm::radians(150.0f));
-    ImGui::SameLine();
-    ImGui::Text("%.2f degrees", glm::degrees(m_Cam.m_FOV));
+      // FOV CONTROL
+      ImGui::DragFloat("FOV", &m_Cam.m_FOV, glm::radians(1.0f), glm::radians(50.0f), glm::radians(150.0f));
+      ImGui::SameLine();
+      ImGui::Text("%.2f degrees", glm::degrees(m_Cam.m_FOV));
 
-    // SENSITIVITY CONTROL
-    ImGui::DragFloat("Sensitivity", &m_Cam.m_Sensitivity, 0.0000125f, 0.00078125f, 0.0625f);
+      // SENSITIVITY CONTROL
+      ImGui::DragFloat("Sensitivity", &m_Cam.m_Sensitivity, 0.0000125f, 0.00078125f, 0.0625f);
 
-    // NEAR AND FAR PLANES
-    ImGui::DragFloat2("Near/Far", &m_Cam.m_Near, 0.125f, 0.0000125f, 25000.0f);
+      // NEAR AND FAR PLANES
+      ImGui::DragFloat2("Near/Far", &m_Cam.m_Near, 0.125f, 0.0000125f, 25000.0f);
 
-    // CAMERA LIGHT COLOR
-    ImGui::DragFloat3("Camera Light Color", &m_LightColor.x, 0.0125f, 0.0f, 1.0f);
+      // CAMERA LIGHT COLOR
+      ImGui::DragFloat3("Camera Light Color", &m_LightColor.x, 0.0125f, 0.0f, 1.0f);
+
+      ImGui::TreePop();
+    }
 
     ImGui::Separator();
 
@@ -874,7 +879,7 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
             pObject->m_EposK = glm::clamp(pObject->m_EposK, 1, v_max);// hard clamp
           }
 
-          ImGui::TreePop();// testy node pop
+          ImGui::TreePop();// object
         }
 
         if (shouldUpdateTransform)pObject->updateMatrices();
