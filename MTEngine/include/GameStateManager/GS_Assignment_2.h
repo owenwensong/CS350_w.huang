@@ -248,10 +248,13 @@ namespace MTU
     A2H::MVA m_Vertices;     // model raw vertices
     A2H::MA  m_Models;       // assignment models
     A2H::OV  m_Objects;      // objects
-    A2H::OPV m_ObjectProxies;// object proxies for BVH
+    A2H::OPV m_Proxies_AABB;  // object proxies for BVH AABBs
+    A2H::OPV m_Proxies_Sphere;// object proxies for BVH Spheres
 
     A2H::TreeNode* m_pBVH_AABB;
+    A2H::TreeNode* m_pBVH_Sphere; // Computed with Ritter spheres for convenience
 
+    int m_TopDownBVHHeightLimit;
     unsigned char m_EPOS;
 
     bool m_bDrawAABB;
@@ -259,7 +262,8 @@ namespace MTU
     bool m_bDrawBS_Larsson;
     bool m_bDrawBS_Pearson;
 
-    bool m_bDrawBVH_AABB;
+    bool m_bDrawBVH_TopDown_AABB;
+    bool m_bDrawBVH_TopDown_Sphere;
     
   };
 }

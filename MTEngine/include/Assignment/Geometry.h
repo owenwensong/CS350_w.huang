@@ -37,6 +37,12 @@
 // MT Geometry
 namespace MTG
 {
+
+  inline float IntrinsicInverseSquare(float number)
+  {
+    return _mm_cvtss_f32(_mm_rsqrt_ss(_mm_set_ps1(number)));// ONLY FOR MSVC VERSION
+  }
+
   using Vector3D = glm::vec3;
 
   using Point3D = Vector3D;
@@ -91,6 +97,10 @@ namespace MTG
     Sphere& operator=(Sphere&&) = default;
     Sphere& operator=(Sphere const&) = default;
 
+    float getVolume() const noexcept;
+    float getSurfaceArea() const noexcept;
+    //float getOverlapVolume(Sphere const& otherAABB) const noexcept; // not worth the trouble,
+    //float getOverlapPercent(Sphere const& otherAABB) const noexcept;// low contribution to heuristic
 
     Point3D m_Center;
     float   m_Radius;

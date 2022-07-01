@@ -241,6 +241,22 @@ namespace A2H
     return retval;
   }
 
+  static MTG::Sphere createBoundingSphere(MTG::Sphere const& s0, MTG::Sphere const& s1)
+  {
+    glm::vec3 dirVec{ s1.m_Center - s0.m_Center };
+    float dirLenSqr{ sqrLen(dirVec) };// squared initially in case can skip sqrt
+    if (float radDiff{ s1.m_Radius - s0.m_Radius }; dirLenSqr < radDiff * radDiff)
+    {
+      return s1.m_Radius > s0.m_Radius ? s1 : s0; // Larger sphere encompasses both, return that
+    }
+    dirVec *= MTG::IntrinsicInverseSquare(dirLenSqr);// normalize direction
+
+    MTG::Sphere retval{ createNewSquaredSphere(s0.m_Center - s0.m_Radius * dirVec, s1.m_Center + s1.m_Radius * dirVec) };
+    retval.m_Radius *= MTG::IntrinsicInverseSquare(retval.m_Radius);
+    
+    return retval;
+  }
+
   // ***************************************************************************
   // ****************************************** BOUNDING VOLUME HIERARCHIES ****
   
@@ -262,16 +278,26 @@ namespace A2H
     return retval;
   }
 
+  // only PCA sphere for convenience and consistency
+  MTG::Sphere computeSetSphere(OV const& objVec, Object::Proxy* pObjects, size_t numObjects)
+  {
+    MTG::Sphere retval{  };
+    for (size_t i{ 0 }; i < numObjects; ++i)
+    {
+      //MTG::Sphere const& iSphere{ objVec[pObjects[i]].m_BS_Pearson };
+      retval = createBoundingSphere(retval, objVec[pObjects[i]].m_BS_Pearson);
+    }
+    return retval;
+  }
+
   void ComputeNodeAABB(TreeNode* pNode, OV const& objVec, Object::Proxy* pObjects, size_t numObjects)
   {
     if (0 != numObjects)pNode->m_BV.asAABB = computeSetAABB(objVec, pObjects, numObjects);
   }
 
-  template <size_t maxDepth>
-  bool floorFnTopDown(size_t numObjects, size_t currDepth)
+  void computeNodeSphere(TreeNode* pNode, OV const& objVec, Object::Proxy* pObjects, size_t numObjects)
   {
-    if constexpr (0 == maxDepth)return 1 == numObjects;// unbound
-    if constexpr (0 != maxDepth)return 1 == numObjects || maxDepth < currDepth;
+    if (0 != numObjects)pNode->m_BV.asSphere = computeSetSphere(objVec, pObjects, numObjects);
   }
 
   template <typename T>
@@ -288,22 +314,22 @@ namespace A2H
     return (diff.x > diff.y) ? (diff.z > diff.x ? 2 : 0) : (diff.z > diff.y ? 2 : 1);
   }
 
-  //glm::vec3 getMedianCardinalsFromAABB(OV const& objVec, Object::Proxy* pObjects, size_t numObjects, int inAxis)
-  //{
-  //  assert(inAxis >= 0 && inAxis < 3);
-
-  //  std::vector<float> floatVec;
-  //  floatVec.reserve(2 * numObjects);// twice for AABB min max
-  //  for (size_t i{ 0 }; i < numObjects; ++i)
-  //  {
-  //    MTG::AABB const& iAABB{ objVec[pObjects[i]].m_AABB };
-  //    floatVec.emplace_back(iAABB.m_Min.x);
-  //    floatVec.emplace_back(iAABB.m_Max.x);
-  //  }
-  //  glm::vec3 retval{ 0.0f, 0.0f, 0.0f };
-  //  retval[inAxis] = looseMedians(floatVec);
-  //  return retval;
-  //}
+  int getAxisLargestSpreadFromSpheres(OV const& objVec, Object::Proxy* pObjects, size_t numObjects)
+  {
+    MTG::AABB extents{ glm::vec3{ std::numeric_limits<float>::max() }, glm::vec3{ std::numeric_limits<float>::lowest() } };
+    assert(numObjects);
+    for (size_t i{ 0 }; i < numObjects; ++i)
+    {
+      glm::vec3 const& iSphereCenter{ objVec[pObjects[i]].m_BS_Pearson.m_Center };
+#define LAZYHELPERMIN(a) if (iSphereCenter. a < extents.m_Min. a)extents.m_Min. a = iSphereCenter. a
+#define LAZYHELPERMAX(a) if (iSphereCenter. a > extents.m_Max. a)extents.m_Max. a = iSphereCenter. a
+      LAZYHELPERMIN(x); LAZYHELPERMIN(y); LAZYHELPERMIN(z);
+      LAZYHELPERMAX(x); LAZYHELPERMAX(y); LAZYHELPERMAX(z);
+#undef LAZYHELPERMIN
+#undef LAZYHELPERMAX
+    }
+    return getAxisLargestSpreadFromAABB(extents);
+  }
 
   size_t topDownSplitPlanePartitionAABB(TreeNode* pNode, OV const& objVec, Object::Proxy* pObjects, size_t numObjects)
   {
@@ -348,6 +374,60 @@ namespace A2H
       heuristicCosts.emplace_back(VOCost + SACost);
     }
 
+    size_t retval{ 0 };
+    for (size_t i{ 1 }, t{ heuristicCosts.size() }; i < t; ++i)
+    {
+      if (heuristicCosts[i] < heuristicCosts[retval])retval = i;
+    }
+
+    return retval + 1;// +1 because the heuristic split starts at 1
+  }
+
+  size_t topDownSplitPlanePartitionSphere(TreeNode* pNode, OV const& objVec, Object::Proxy* pObjects, size_t numObjects)
+  {
+    if (2 == numObjects)return 1;// early skip since only 2
+
+    // Step 1: Calculate the axis to split the volumes
+    int axisLargestSpread{ getAxisLargestSpreadFromSpheres(objVec, pObjects, numObjects) };
+
+    //// Step 2: Sort the volumes based on the axis to split
+    std::sort
+    (
+      pObjects,
+      pObjects + numObjects,
+      [&](Object::Proxy inA, Object::Proxy inB)
+      {
+        MTG::Sphere const& SA{ objVec[inA].m_BS_Pearson };
+        MTG::Sphere const& SB{ objVec[inB].m_BS_Pearson };
+
+        // sort by least extents (eg left most point on sphere if x-axis)
+        return (SA.m_Center[axisLargestSpread] - SA.m_Radius) < (SB.m_Center[axisLargestSpread] - SB.m_Radius);
+      }
+    );
+
+    //// Step 3: Divide the space into two subsets
+    std::vector<float> heuristicCosts;
+    heuristicCosts.reserve(numObjects - 1);
+
+    float reciprocalParentSA{ pNode->m_BV.asSphere.getSurfaceArea() };
+    if (reciprocalParentSA)reciprocalParentSA = 1.0f / reciprocalParentSA;
+
+    for (size_t i{ 1 }, t{ numObjects }; i < t; ++i)
+    {
+      MTG::Sphere LSet{ computeSetSphere(objVec, pObjects, i) };
+      MTG::Sphere RSet{ computeSetSphere(objVec, pObjects + i, numObjects - i) };
+
+      // leaving them separate for now in case I want to reference/change
+
+      // Volume Heuristic (affects it only a bit but for the better)
+      //float VOCost{ 1.0f - LSet.getOverlapPercent(RSet) };// hard, not worth it
+
+      // Surface Area Heuristic
+      float SACost{ reciprocalParentSA * (i * LSet.getSurfaceArea() + (numObjects - i) * RSet.getSurfaceArea()) };
+
+      heuristicCosts.emplace_back(SACost);
+    }
+    
     size_t retval{ 0 };
     for (size_t i{ 1 }, t{ heuristicCosts.size() }; i < t; ++i)
     {
@@ -435,13 +515,17 @@ MTU::GS_Assignment_2::GS_Assignment_2(GameStateManager& rGSM) :
   m_Vertices{  },
   m_Models{  },
   m_Objects{  },
+  m_Proxies_AABB{  },
+  m_Proxies_Sphere{  },
   m_pBVH_AABB{ nullptr },
+  m_TopDownBVHHeightLimit{ 7 },
   m_EPOS{ A2H::E_EPOS_LAST },
   m_bDrawAABB{ false },
   m_bDrawBS_Ritter{ false },
   m_bDrawBS_Larsson{ false },
   m_bDrawBS_Pearson{ false },
-  m_bDrawBVH_AABB{ false }
+  m_bDrawBVH_TopDown_AABB{ false },
+  m_bDrawBVH_TopDown_Sphere{ false }
 {
   GS_PRINT_FUNCSIG();
 
@@ -631,6 +715,7 @@ void MTU::GS_Assignment_2::Init()
   // ***************************************************************************
   // *************************************************** SET BOOLS AND MORE ****
 
+  m_TopDownBVHHeightLimit = 7;
   m_EPOS = A2H::E_EPOS_LAST;
 
   m_bDrawAABB = false;
@@ -638,7 +723,8 @@ void MTU::GS_Assignment_2::Init()
   m_bDrawBS_Larsson = false;
   m_bDrawBS_Pearson = false;
 
-  m_bDrawBVH_AABB = false;
+  m_bDrawBVH_TopDown_AABB = false;
+  m_bDrawBVH_TopDown_Sphere = false;
 
   // ***************************************************************************
 
@@ -687,6 +773,11 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
 
     ImGui::Separator();
 
+    // Top Down BVH tree height limit selector
+    ImGui::DragInt("TD BVH Limit", &m_TopDownBVHHeightLimit, 0.25f, 0, 25);
+    if (m_TopDownBVHHeightLimit < 0)m_TopDownBVHHeightLimit = 0;
+    IMGUI_SAMELINE_TOOLTIP_HELPER("Top Down BVH tree height limit\n0 for unlimited.\n\nChild bounding spheres may extend\nbeyond their parent bounding sphere.\nThis is OK because the parent bounding sphere\nstill encapsulates all child objects properly.\nDemonstrable by using limit 1.");
+
     // LARSSON EPOS SELECTOR
     if (ImGui::BeginCombo("BS Larsson EPOS", A2H::eposNames[m_EPOS]))
     {
@@ -719,7 +810,8 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
     IMGUI_COLOR_CHECKBOX_HELPER("draw BS Pearson (PCA)", m_bDrawBS_Pearson, A2H::BS_Pearson_WireColor);
 
     // BVH draw checkboxes
-    ImGui::Checkbox("draw AABB BVHs", &m_bDrawBVH_AABB);
+    ImGui::Checkbox("draw AABB BVHs (Top Down)", &m_bDrawBVH_TopDown_AABB);
+    ImGui::Checkbox("draw Sphere BVHs (Top Down)", &m_bDrawBVH_TopDown_Sphere);
 
     // SCENE OBJECTS EDITOR (Add only, lazy to support remove)
     ImGui::Separator();
@@ -942,7 +1034,7 @@ void MTU::GS_Assignment_2::Draw()
     }
   }
 
-  if (true == m_bDrawBVH_AABB)
+  if (true == m_bDrawBVH_TopDown_AABB)
   {
     A2H::depthFirst
     (
@@ -960,7 +1052,26 @@ void MTU::GS_Assignment_2::Draw()
         m_DebugModels[A2H::E_DEBUGMODEL_CUBE].draw(FCB);
       }
     );
+  }
 
+  if (true == m_bDrawBVH_TopDown_Sphere)
+  {
+    A2H::depthFirst
+    (
+      m_pBVH_Sphere,
+      [&](A2H::TreeNode* pNode, size_t currDepth)// color based on BVH level
+      {
+        if (nullptr == pNode || pNode->m_bIsLeaf)return;
+
+        glm::mat4 xform{ m_Cam.m_W2V * A2H::getBSMat(pNode->m_BV.asSphere) };
+
+        currDepth = std::min(currDepth, A2H::BVH_WireColors.size() - 1);
+        m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &A2H::BVH_WireColors[currDepth]);
+        m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
+
+        m_DebugModels[A2H::E_DEBUGMODEL_SPHERE].draw(FCB);
+      }
+    );
   }
 
 }
@@ -984,16 +1095,33 @@ MTU::GS_Assignment_2::~GS_Assignment_2()
 void MTU::GS_Assignment_2::computeBVHs()
 {
   destroyBVHs();
-  m_ObjectProxies.reserve(m_Objects.size());
-  for (size_t i{ 0 }, t{ m_Objects.size() }; i < t; ++i)m_ObjectProxies.emplace_back(i);
-  m_pBVH_AABB = A2H::constructTopDown(m_Objects, m_ObjectProxies.data(), m_ObjectProxies.size(), A2H::ComputeNodeAABB, A2H::floorFnTopDown<7>, A2H::topDownSplitPlanePartitionAABB);
+  
+  m_Proxies_AABB.reserve(m_Objects.size());
+  for (size_t i{ 0 }, t{ m_Objects.size() }; i < t; ++i)m_Proxies_AABB.emplace_back(i);
+  m_Proxies_Sphere = m_Proxies_AABB;
+
+  // lazy remove check
+  int tmpMaxDepth{ m_TopDownBVHHeightLimit ? m_TopDownBVHHeightLimit : std::numeric_limits<int>::max() };
+  auto floorFn
+  {
+    [=](size_t numObjects, size_t currDepth)
+    {
+      return 1 == numObjects || tmpMaxDepth <= currDepth;
+    }
+  };
+
+  m_pBVH_AABB = A2H::constructTopDown(m_Objects, m_Proxies_AABB.data(), m_Proxies_AABB.size(), A2H::ComputeNodeAABB, floorFn, A2H::topDownSplitPlanePartitionAABB);
+  m_pBVH_Sphere = A2H::constructTopDown(m_Objects, m_Proxies_AABB.data(), m_Proxies_AABB.size(), A2H::computeNodeSphere, floorFn, A2H::topDownSplitPlanePartitionSphere);
 }
 
 void MTU::GS_Assignment_2::destroyBVHs()
 {
   A2H::destroyTree(m_pBVH_AABB);
+  A2H::destroyTree(m_pBVH_Sphere);
   m_pBVH_AABB = nullptr;
-  m_ObjectProxies.clear();
+  m_pBVH_Sphere = nullptr;
+  m_Proxies_AABB.clear();
+  m_Proxies_Sphere.clear();
 }
 
 // *****************************************************************************

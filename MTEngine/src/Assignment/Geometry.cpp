@@ -10,11 +10,24 @@
 #include <Assignment/Geometry.h>
 #include <algorithm>// min max
 
+static constexpr float fourPi{ 2 * glm::two_pi<float>() };
+static constexpr float fourPiOverThree{ fourPi / 3 };
+
 MTG::Plane::Plane(glm::vec3 inNormal, glm::vec3 point) :
   m_Normal{ glm::normalize(inNormal) },
   m_Dist{ glm::dot(m_Normal, point) }
 {
 
+}
+
+float MTG::Sphere::getVolume() const noexcept
+{
+  return fourPiOverThree * m_Radius * m_Radius * m_Radius;
+}
+
+float MTG::Sphere::getSurfaceArea() const noexcept
+{
+  return fourPi * m_Radius * m_Radius;
 }
 
 float MTG::AABB::getVolume() const noexcept
