@@ -165,12 +165,15 @@ glm::mat3 MTG::computeCovarianceMatrix(glm::vec3 const* pBegin, size_t nElems)
   glm::vec3 mean{ std::accumulate(pBegin, pEnd, glm::vec3{ 0.0f }) * reciprocalN };
   for (; pBegin < pEnd; ++pBegin)
   {
-    retval[0][0] += localHelper::Squared(pBegin[0][0] - mean[0]);         // c11
-    retval[1][1] += localHelper::Squared(pBegin[0][1] - mean[1]);         // c22
-    retval[2][2] += localHelper::Squared(pBegin[0][2] - mean[2]);         // c33
-    retval[1][0] += (pBegin[0][0] - mean[0]) * (pBegin[0][1] - mean[1]);  // c12
-    retval[2][0] += (pBegin[0][0] - mean[0]) * (pBegin[0][2] - mean[2]);  // c13
-    retval[2][1] += (pBegin[0][1] - mean[1]) * (pBegin[0][2] - mean[2]);  // c23
+    float recycleA{ pBegin[0][0] - mean[0] };
+    float recycleB{ pBegin[0][1] - mean[1] };
+    float recycleC{ pBegin[0][2] - mean[2] };
+    retval[0][0] += recycleA * recycleA;  // c11
+    retval[1][1] += recycleB * recycleB;  // c22
+    retval[2][2] += recycleC * recycleC;  // c33
+    retval[1][0] += recycleA * recycleB;  // c12
+    retval[2][0] += recycleA * recycleC;  // c13
+    retval[2][1] += recycleB * recycleC;  // c23
   }
 
   retval[0][0] *= reciprocalN;  // c11
