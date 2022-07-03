@@ -190,6 +190,112 @@ glm::mat3 MTG::computeCovarianceMatrix(glm::vec3 const* pBegin, size_t nElems)
   return retval;
 }
 
+void MTG::SymChur2(glm::mat3& a, glm::vec2& cs, int p, int q)
+{
+  if (std::fabsf(a[q][p]) < 0.000125f)
+  {
+    cs.x = 1.0f;  // c
+    cs.y = 0.0f;  // s
+    return;
+  }
+
+  float r{ (a[q][q] - a[p][p]) / (2.0f * a[q][p]) };// slightly better than 0.5f * (a-b)/c since getting direct division result?
+  float t{ (std::signbit(r) ? -sqrtf(1.0f + r * r) : sqrtf(1.0f + r * r)) - r };// optimization using conjugate multiplication
+  cs.x = IntrinsicInverseSquare(1.0f + t * t);
+  cs.y = t * cs.x;
+}
+
+void MTG::Jacobi(glm::mat3& a, glm::mat3& v)
+{
+  float prevOff{ std::numeric_limits<float>::max() };
+  v = glm::identity<glm::mat3>();
+
+  for (int n{ 0 }, t{ 50 }; n < t; ++n)
+  {
+    int p{ 0 }, q{ 1 };
+    for (int i{ 0 }; i < 3; ++i)
+    {
+      for (int j{ 0 }; j < 3; ++j)
+      {
+        if (i == j)continue;
+        if (std::fabs(a[j][i]) > std::fabs(a[q][p]))
+        {
+          p = i;
+          q = j;
+        }
+      }
+    }
+
+    glm::vec2 cs;
+    SymChur2(a, cs, p, q);
+    glm::mat3 J{ glm::identity<glm::mat3>() };
+    J[p][p] =  cs.x;
+    J[q][p] =  cs.y;
+    J[p][q] = -cs.y;
+    J[q][q] =  cs.x;
+
+    v = v * J;  // accumulate rotations into what will contain the eigenvectors
+
+    a = (glm::transpose(J) * a) * J;
+
+    float off{ 0.0f };
+
+    for (int i{ 0 }; i < 3; ++i)
+    {
+      for (int j{ 0 }; j < 3; ++j)
+      {
+        if (i == j)continue;
+        off += localHelper::Squared(a[j][i]);
+      }
+    }
+
+    if (off > prevOff)return;// is there a point checking n > 2?
+
+    prevOff = off;
+
+  }
+}
+
+MTG::Sphere MTG::createEigenSquaredRadiusSphere(glm::vec3 const* pBegin, size_t nElems)
+{
+  glm::mat3 m{ computeCovarianceMatrix(pBegin, nElems) }, v;
+  Jacobi(m, v);
+
+  int maxc{ 0 };
+  float maxe{ std::fabsf(m[0][0]) };
+  for (int i{ 1 }; i < 3; ++i)
+  {
+    if (float maxf{ std::fabsf(m[i][i]) }; maxf > maxe)
+    {
+      maxc = i;
+      maxe = maxf;
+    }
+  }
+  glm::vec3 e{ v[maxc] };
+
+  MTG::AABB minmaxe;
+  {
+    float minProj{ std::numeric_limits<float>::max() };
+    float maxProj{ std::numeric_limits<float>::lowest() };
+    for (glm::vec3 const* pEnd{ pBegin + nElems }; pBegin < pEnd; ++pBegin)
+    {
+      float projDist{ glm::dot(e, *pBegin) };
+      if (projDist < minProj)
+      {
+        minmaxe.m_Min = *pBegin;
+        minProj = projDist;
+      }
+      if (projDist > maxProj)
+      {
+        minmaxe.m_Max = *pBegin;
+        maxProj = projDist;
+      }
+    }
+  }
+  glm::vec3 center{ 0.5f * (minmaxe.m_Max + minmaxe.m_Min) };
+  return MTG::Sphere{ center, localHelper::DistanceSquared3D(minmaxe.m_Min, center)};
+}
+
 bool MTG::intersectionSphereSphere(Sphere const& s0, Sphere const& s1)
 {
   return localHelper::DistanceSquared3D(s0.m_Center, s1.m_Center) <= localHelper::Squared(s0.m_Radius + s1.m_Radius);

@@ -40,6 +40,10 @@ namespace MTG
 
   glm::mat3 computeCovarianceMatrix(glm::vec3 const* pBegin, size_t nElems);
 
+  void SymChur2(glm::mat3& a, glm::vec2& cs, int p, int q);
+
+  void Jacobi(glm::mat3& a, glm::mat3& v);
+
   inline float IntrinsicInverseSquare(float number)
   {
     return _mm_cvtss_f32(_mm_rsqrt_ss(_mm_set_ps1(number)));// ONLY FOR MSVC VERSION
@@ -175,6 +179,9 @@ namespace MTG
   // -1 Outside half plane, 0 overlaps 1 Outside half plane
   int intersectionPlaneAABB(Plane const&, AABB const&);
   int intersectionPlaneSphere(Plane const&, Sphere const&);
+
+  MTG::Sphere createEigenSquaredRadiusSphere(glm::vec3 const* pBegin, size_t nElems);
+
 }
 
 #endif//ASSIGNMENT_GEOMETRY_HEADER_GUARD

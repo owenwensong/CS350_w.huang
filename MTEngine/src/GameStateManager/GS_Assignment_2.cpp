@@ -880,7 +880,7 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
   if (ImGui::Begin("CS350Menu"))
   {
     ImGui::TextUnformatted("Hover tooltips:");
-    IMGUI_SAMELINE_TOOLTIPV_HELPER("These (?) tooltips contain more information to use the program as intended\n\nExtra info:\n\nVertices: %d (total number of vertices in the scene)\nObjects RAM: %d B (Memory used to store per object pos, rot, scale, matrices, bounding volumes, etc)\nModels RAM:  %d B (Memory used to store positions to calculate BVs)\nModels VRAM: %d B (GPU Memory used to store model data)", static_cast<int>(getNumSceneVertices()), static_cast<int>(getObjectsRam()), static_cast<int>(getModelsRAM()), static_cast<int>(getModelsVRAM()));
+    IMGUI_SAMELINE_TOOLTIPV_HELPER("These (?) tooltips contain more information to use the program as intended\n\nExtra info:\n\nVertices: %d (total number of vertices in the scene)\nObjects RAM: %d B (Memory used to store per object pos, rot, scale, etc)\nModels RAM:  %d B (Memory used to store positions to calculate BVs)\nModels VRAM: %d B (GPU Memory used to store model data)", static_cast<int>(getNumSceneVertices()), static_cast<int>(getObjectsRam()), static_cast<int>(getModelsRAM()), static_cast<int>(getModelsVRAM()));
     ImGui::TextUnformatted("Window controls");
     IMGUI_SAMELINE_TOOLTIPV_HELPER("F11: Fullscreen\n\n%s", "F1: Go to Assignment 1 state\nF2: Restart Assignment 2 state");
     ImGui::TextUnformatted("Camera controls");
@@ -1391,9 +1391,15 @@ void A2H::Object::computeBoundingVolumes(MVA const& inModelVertexArray)
   m_BS_Larsson = createLarssonSpheres(vertices, m_EposK);
 
   // Principal Component Analysis
-  
-  // TODO: calculate it, this is just to make sure it draws something
-  m_BS_Pearson = m_BS_Larsson[E_EPOS_98];
+  m_BS_Pearson = MTG::createEigenSquaredRadiusSphere(vertices.data(), vertices.size());
+  for (auto const& x : vertices)
+  {
+    if (sqrDist(x, m_BS_Pearson.m_Center) > m_BS_Pearson.m_Radius)
+    {
+      m_BS_Pearson = createNewSquaredSphere(getOppositePoint(m_BS_Pearson, x), x);
+    }
+  }
+  m_BS_Pearson.m_Radius = std::sqrtf(m_BS_Pearson.m_Radius);
 
 }
 
