@@ -447,7 +447,7 @@ namespace A2H
 
     if (pNode->m_bIsLeaf)
     {
-      pNode->m_Union.asLeaf.m_pProxies = pObjects;
+      pNode->m_Union.asLeaf.m_Proxy.asPointer = pObjects;
       pNode->m_Union.asLeaf.m_Size = numObjects;
     }
     else
@@ -458,6 +458,131 @@ namespace A2H
     }
 
     return pNode;
+  }
+
+  TreeNode::bvType getAsAABB(Object const& inA)
+  {
+    TreeNode::bvType retval;
+    retval.asAABB = inA.m_AABB;
+    return retval;
+  }
+
+  TreeNode::bvType getAsSphere(Object const& inA)
+  {
+    TreeNode::bvType retval;
+    retval.asSphere = inA.m_BS_Pearson;
+    return retval;
+  }
+
+  TreeNode::bvType computeParentAABB(TreeNode::bvType const& inA, TreeNode::bvType const& inB) noexcept
+  {
+    TreeNode::bvType retval;
+    retval.asAABB = MTG::AABB
+    {
+      glm::vec3
+      {
+        std::min(inA.asAABB.m_Min.x, inB.asAABB.m_Min.x),
+        std::min(inA.asAABB.m_Min.y, inB.asAABB.m_Min.y),
+        std::min(inA.asAABB.m_Min.z, inB.asAABB.m_Min.z)
+      },
+      glm::vec3
+      {
+        std::max(inA.asAABB.m_Max.x, inB.asAABB.m_Max.x),
+        std::max(inA.asAABB.m_Max.y, inB.asAABB.m_Max.y),
+        std::max(inA.asAABB.m_Max.z, inB.asAABB.m_Max.z)
+      }
+    };
+    return retval;
+  }
+
+  TreeNode::bvType computeParentSphere(TreeNode::bvType const& inA, TreeNode::bvType const& inB) noexcept
+  {
+    TreeNode::bvType retval;
+    retval.asSphere = createBoundingSphere(inA.asSphere, inB.asSphere);
+    return retval;
+  }
+
+  float computeBottomUpBVHeuristicAABB(TreeNode::bvType const& inA, TreeNode::bvType const& inB, TreeNode::bvType const& inAB)
+  {
+    float volumeA{ inA.asAABB.getVolume() }, volumeB{ inB.asAABB.getVolume() };
+    float volumeAB{ inAB.asAABB.getVolume() };
+    float combinedVolume{ volumeA + volumeB };
+    return volumeAB / combinedVolume; // < 1 when overlaps (what I want)
+  }
+
+  float computeBottomUpBVHeuristicSphere(TreeNode::bvType const& inA, TreeNode::bvType const& inB, TreeNode::bvType const& inAB)
+  {
+    float volumeA{ inA.asSphere.getVolume() }, volumeB{ inB.asSphere.getVolume() };
+    float volumeAB{ inAB.asSphere.getVolume() };
+    float combinedVolume{ volumeA + volumeB };
+    return volumeAB / combinedVolume; // < 1 when overlaps (what I want)
+  }
+
+  template <typename initialBVCFnType, typename computeParentBVFnType, typename computeHeuristicFnType>
+  TreeNode* constructBottomUpAABB(OV const& objVec, initialBVCFnType constructInitialBVFn, computeParentBVFnType computeParentBVFn, computeHeuristicFnType computeHeuristicFn)
+  {
+    std::vector<TreeNode*> currLevelNodes;
+    std::vector<TreeNode*> nextLevelNodes;
+    
+    currLevelNodes.reserve(objVec.size());  // all objects as leaves
+    nextLevelNodes.reserve(objVec.size());  // same size to be quick swappable 
+
+    // Initialize leaf nodes with all objects and inherit their bounding volume
+    for (Object::Proxy i{ 0 }, t{ objVec.size() }; i < t; ++i)
+    {
+      TreeNode* toEmplace{ new TreeNode };
+      toEmplace->m_Union.asLeaf.m_Proxy.asValue = i;
+      toEmplace->m_BV = constructInitialBVFn(objVec[i]);
+      toEmplace->m_bIsLeaf = true;
+      currLevelNodes.emplace_back(toEmplace);
+    }
+
+    for (; currLevelNodes.size() > 1; std::swap(currLevelNodes, nextLevelNodes))
+    {
+
+      // find pairs to merge (from back) and send them into nextLevelNodes
+      // pop back, then swap other with new back and pop back again
+      while (currLevelNodes.size() > 1)
+      {
+        TreeNode* toEmplace{ new TreeNode };
+        toEmplace->m_Union.asInternal.m_RChild = currLevelNodes.back();
+        toEmplace->m_bIsLeaf = false;
+        TreeNode::bvType const& fixedChildBV{ toEmplace->m_Union.asInternal.m_RChild->m_BV };
+        
+        size_t toRemove{ 0 };// initialized to get compiler to stop whining about an impossible case
+        float chosenHeuristic{ std::numeric_limits<float>::max() };
+
+        // from first to second last
+        for (size_t i{ 0 }, t{ currLevelNodes.size() - 1 }; i < t; ++i)
+        {
+          TreeNode::bvType ibBV{ computeParentBVFn(currLevelNodes[i]->m_BV, fixedChildBV) };// TO MAKE EXT FN CALL
+          if (float currHeuristic{ computeHeuristicFn(currLevelNodes[i]->m_BV, fixedChildBV, ibBV) }; currHeuristic < chosenHeuristic)
+          {
+            toEmplace->m_BV = ibBV;
+            chosenHeuristic = currHeuristic;
+            toRemove = i;
+          }
+        }
+
+        toEmplace->m_Union.asInternal.m_LChild = currLevelNodes[toRemove];
+        nextLevelNodes.emplace_back(toEmplace);
+
+        currLevelNodes.pop_back();  // remove b
+        currLevelNodes[toRemove] = currLevelNodes.back(); // move valid inwards
+        currLevelNodes.pop_back();  // remove i
+
+      }
+
+      // move odd node over to nextLevel since it has nothing to merge with
+      if (currLevelNodes.size())
+      {
+        nextLevelNodes.emplace_back(currLevelNodes.front());
+        currLevelNodes.clear();// there should only be 1 leftover
+      }
+    }
+
+    return currLevelNodes[0];  // will always have size of 1
+
   }
 
   void destroyTree(TreeNode* pTree)
@@ -486,9 +611,9 @@ namespace A2H
   // ***************************************************************************
 
   static const glm::vec3 AABB_WireColor{ 0.0625f, 1.0f, 0.0625f };
-  static const glm::vec3 BS_Ritter_WireColor{ 0.0625f, 0.0625f, 1.0f };
+  static const glm::vec3 BS_Ritter_WireColor{ 1.0f, 0.0625f, 0.0625f };
   static const glm::vec3 BS_Larsson_WireColor{ 1.0f, 1.0f, 0.0625f };
-  static const glm::vec3 BS_Pearson_WireColor{ 1.0f, 0.0625f, 0.0625f };
+  static const glm::vec3 BS_Pearson_WireColor{ 0.0625f, 0.0625f, 1.0f };
   static const std::array<glm::vec3, 8> BVH_WireColors  // 7 + 1 (any farther levels just use the +1)
   {
     glm::vec3{ 0.0f, 0.75f, 0.5f },
@@ -517,7 +642,10 @@ MTU::GS_Assignment_2::GS_Assignment_2(GameStateManager& rGSM) :
   m_Objects{  },
   m_Proxies_AABB{  },
   m_Proxies_Sphere{  },
-  m_pBVH_AABB{ nullptr },
+  m_pBVH_TD_AABB{ nullptr },
+  m_pBVH_TD_Sphere{ nullptr },
+  m_pBVH_BU_AABB{ nullptr },
+  m_pBVH_BU_Sphere{ nullptr },
   m_TopDownBVHHeightLimit{ 7 },
   m_EPOS{ A2H::E_EPOS_LAST },
   m_bDrawAABB{ false },
@@ -525,7 +653,9 @@ MTU::GS_Assignment_2::GS_Assignment_2(GameStateManager& rGSM) :
   m_bDrawBS_Larsson{ false },
   m_bDrawBS_Pearson{ false },
   m_bDrawBVH_TopDown_AABB{ false },
-  m_bDrawBVH_TopDown_Sphere{ false }
+  m_bDrawBVH_BottomUp_AABB{ false },
+  m_bDrawBVH_TopDown_Sphere{ false },
+  m_bDrawBVH_BottomUp_Sphere{ false }
 {
   GS_PRINT_FUNCSIG();
 
@@ -724,7 +854,9 @@ void MTU::GS_Assignment_2::Init()
   m_bDrawBS_Pearson = false;
 
   m_bDrawBVH_TopDown_AABB = false;
+  m_bDrawBVH_BottomUp_AABB = false;
   m_bDrawBVH_TopDown_Sphere = false;
+  m_bDrawBVH_BottomUp_Sphere = false;
 
   // ***************************************************************************
 
@@ -808,6 +940,8 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
     IMGUI_SAMELINE_TOOLTIP_HELPER("Recomputes the Bounding Volumes and Bounding Volume Heirarchies.\nPlease recompute after making changes to the scene.\nBVs and BVHs only update upon user request.\nInstead of choosing K fixed vertices, I use K random vertices,\nso recomputation of Larsson's sphere with the same K value may vary");
 
     // AABB draw checkbox
+    ImGui::Separator();
+    ImGui::TextUnformatted("Bounding Volumes");
     IMGUI_COLOR_CHECKBOX_HELPER("draw AABB", m_bDrawAABB, A2H::AABB_WireColor);
     IMGUI_COLOR_CHECKBOX_HELPER("draw BS Ritter", m_bDrawBS_Ritter, A2H::BS_Ritter_WireColor);
     IMGUI_COLOR_CHECKBOX_HELPER("draw BS Larsson", m_bDrawBS_Larsson, A2H::BS_Larsson_WireColor);
@@ -815,8 +949,13 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
     IMGUI_COLOR_CHECKBOX_HELPER("draw BS Pearson (PCA)", m_bDrawBS_Pearson, A2H::BS_Pearson_WireColor);
 
     // BVH draw checkboxes
+    ImGui::Separator();
+    ImGui::TextUnformatted("Bounding Volume Heirarchies");
+    IMGUI_SAMELINE_TOOLTIP_HELPER("Object level Bounding Volumes are not drawn.\nplease use the above checkboxes to draw\nobject level bounding volumes.");
     ImGui::Checkbox("draw AABB BVHs (Top Down)", &m_bDrawBVH_TopDown_AABB);
+    ImGui::Checkbox("draw AABB BVHs (Bottom Up)", &m_bDrawBVH_BottomUp_AABB);
     ImGui::Checkbox("draw Sphere BVHs (Top Down)", &m_bDrawBVH_TopDown_Sphere);
+    ImGui::Checkbox("draw Sphere BVHs (Bottom Up)", &m_bDrawBVH_BottomUp_Sphere);
 
     // SCENE OBJECTS EDITOR (Add only, lazy to support remove)
     ImGui::Separator();
@@ -1043,7 +1182,27 @@ void MTU::GS_Assignment_2::Draw()
   {
     A2H::depthFirst
     (
-      m_pBVH_AABB,
+      m_pBVH_TD_AABB,
+      [&](A2H::TreeNode* pNode, size_t currDepth)// color based on BVH level
+      {
+        if (nullptr == pNode || pNode->m_bIsLeaf)return;
+
+        glm::mat4 xform{ m_Cam.m_W2V * A2H::getAABBMat(pNode->m_BV.asAABB) };
+
+        currDepth = std::min(currDepth, A2H::BVH_WireColors.size() - 1);
+        m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &A2H::BVH_WireColors[currDepth]);
+        m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
+
+        m_DebugModels[A2H::E_DEBUGMODEL_CUBE].draw(FCB);
+      }
+    );
+  }
+
+  if (true == m_bDrawBVH_BottomUp_AABB)
+  {
+    A2H::depthFirst
+    (
+      m_pBVH_BU_AABB,
       [&](A2H::TreeNode* pNode, size_t currDepth)// color based on BVH level
       {
         if (nullptr == pNode || pNode->m_bIsLeaf)return;
@@ -1063,7 +1222,27 @@ void MTU::GS_Assignment_2::Draw()
   {
     A2H::depthFirst
     (
-      m_pBVH_Sphere,
+      m_pBVH_TD_Sphere,
+      [&](A2H::TreeNode* pNode, size_t currDepth)// color based on BVH level
+      {
+        if (nullptr == pNode || pNode->m_bIsLeaf)return;
+
+        glm::mat4 xform{ m_Cam.m_W2V * A2H::getBSMat(pNode->m_BV.asSphere) };
+
+        currDepth = std::min(currDepth, A2H::BVH_WireColors.size() - 1);
+        m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &A2H::BVH_WireColors[currDepth]);
+        m_Pipelines[A2H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
+
+        m_DebugModels[A2H::E_DEBUGMODEL_SPHERE].draw(FCB);
+      }
+    );
+  }
+
+  if (true == m_bDrawBVH_BottomUp_Sphere)
+  {
+    A2H::depthFirst
+    (
+      m_pBVH_BU_Sphere,
       [&](A2H::TreeNode* pNode, size_t currDepth)// color based on BVH level
       {
         if (nullptr == pNode || pNode->m_bIsLeaf)return;
@@ -1115,16 +1294,22 @@ void MTU::GS_Assignment_2::computeBVHs()
     }
   };
 
-  m_pBVH_AABB = A2H::constructTopDown(m_Objects, m_Proxies_AABB.data(), m_Proxies_AABB.size(), A2H::ComputeNodeAABB, floorFn, A2H::topDownSplitPlanePartitionAABB);
-  m_pBVH_Sphere = A2H::constructTopDown(m_Objects, m_Proxies_AABB.data(), m_Proxies_AABB.size(), A2H::computeNodeSphere, floorFn, A2H::topDownSplitPlanePartitionSphere);
+  m_pBVH_TD_AABB = A2H::constructTopDown(m_Objects, m_Proxies_AABB.data(), m_Proxies_AABB.size(), A2H::ComputeNodeAABB, floorFn, A2H::topDownSplitPlanePartitionAABB);
+  m_pBVH_TD_Sphere = A2H::constructTopDown(m_Objects, m_Proxies_AABB.data(), m_Proxies_AABB.size(), A2H::computeNodeSphere, floorFn, A2H::topDownSplitPlanePartitionSphere);
+  m_pBVH_BU_AABB = A2H::constructBottomUpAABB(m_Objects, A2H::getAsAABB, A2H::computeParentAABB, A2H::computeBottomUpBVHeuristicAABB);
+  m_pBVH_BU_Sphere = A2H::constructBottomUpAABB(m_Objects, A2H::getAsSphere, A2H::computeParentSphere, A2H::computeBottomUpBVHeuristicSphere);
 }
 
 void MTU::GS_Assignment_2::destroyBVHs()
 {
-  A2H::destroyTree(m_pBVH_AABB);
-  A2H::destroyTree(m_pBVH_Sphere);
-  m_pBVH_AABB = nullptr;
-  m_pBVH_Sphere = nullptr;
+  A2H::destroyTree(m_pBVH_TD_AABB);
+  A2H::destroyTree(m_pBVH_BU_AABB);
+  A2H::destroyTree(m_pBVH_TD_Sphere);
+  A2H::destroyTree(m_pBVH_BU_Sphere);
+  m_pBVH_TD_AABB = nullptr;
+  m_pBVH_BU_AABB = nullptr;
+  m_pBVH_TD_Sphere = nullptr;
+  m_pBVH_BU_Sphere = nullptr;
   m_Proxies_AABB.clear();
   m_Proxies_Sphere.clear();
 }

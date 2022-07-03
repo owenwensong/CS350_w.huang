@@ -167,7 +167,11 @@ namespace A2H // Assignment 2 Helper namespace
     {
       struct asLeaf
       {
-        Object::Proxy* m_pProxies;// pointer to an Object::Proxy vector element
+        union
+        {
+          Object::Proxy*  asPointer;// pointer to an Object::Proxy vector element
+          Object::Proxy   asValue;  // actual proxy ID
+        } m_Proxy;
         size_t         m_Size;    // number of elements being pointed to
       } asLeaf;
       struct asInternal
@@ -251,8 +255,13 @@ namespace MTU
     A2H::OPV m_Proxies_AABB;  // object proxies for BVH AABBs
     A2H::OPV m_Proxies_Sphere;// object proxies for BVH Spheres
 
-    A2H::TreeNode* m_pBVH_AABB;
-    A2H::TreeNode* m_pBVH_Sphere; // Computed with Ritter spheres for convenience
+    // Top down trees
+    A2H::TreeNode* m_pBVH_TD_AABB;
+    A2H::TreeNode* m_pBVH_TD_Sphere;  // Computed with 1 type of Bounding Sphere for convenience
+
+    // Bottom up trees
+    A2H::TreeNode* m_pBVH_BU_AABB;
+    A2H::TreeNode* m_pBVH_BU_Sphere;  // Computed with 1 type of Bounding Sphere for convenience
 
     int m_TopDownBVHHeightLimit;
     unsigned char m_EPOS;
@@ -263,8 +272,10 @@ namespace MTU
     bool m_bDrawBS_Pearson;
 
     bool m_bDrawBVH_TopDown_AABB;
+    bool m_bDrawBVH_BottomUp_AABB;
     bool m_bDrawBVH_TopDown_Sphere;
-    
+    bool m_bDrawBVH_BottomUp_Sphere;
+
   };
 }
 
