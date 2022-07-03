@@ -9,6 +9,7 @@
 
 #include <Assignment/Geometry.h>
 #include <algorithm>// min max
+#include <numeric>  // accumulate
 
 static constexpr float fourPi{ 2 * glm::two_pi<float>() };
 static constexpr float fourPiOverThree{ fourPi / 3 };
@@ -138,6 +139,52 @@ namespace localHelper
 
   }
 
+}
+
+// tested with: 
+// std::array testcase
+// {
+//   glm::vec3{ 3.03f, 1.34f, 3.0f },
+//   glm::vec3{ 7.0f, 10.0f, 10.0f },
+//   glm::vec3{ -5.0f, 0.0f, 3.5f },
+//   glm::vec3{ 6.5f, -3.63f, -5.81f },
+//   glm::vec3{ 4.5f, 0.0f, 5.0f },
+//   glm::vec3{ 8.0f, -3.0f, 5.0f }
+// };
+// to get: 
+// 18.9068  | 1.26694 | 0.576925
+// 1.26694  | 20.0459 | 15.6448
+// 0.576925 | 15.6448 | 22.2767
+// confirmed good computed by hand.
+glm::mat3 MTG::computeCovarianceMatrix(glm::vec3 const* pBegin, size_t nElems)
+{
+  glm::vec3 const* pEnd{ pBegin + nElems };
+  glm::mat3 retval{ glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, glm::vec3{ 0.0f } };
+  if (0 == nElems)return retval;
+  float reciprocalN{ 1.0f / nElems };
+  glm::vec3 mean{ std::accumulate(pBegin, pEnd, glm::vec3{ 0.0f }) * reciprocalN };
+  for (; pBegin < pEnd; ++pBegin)
+  {
+    retval[0][0] += localHelper::Squared(pBegin[0][0] - mean[0]);         // c11
+    retval[1][1] += localHelper::Squared(pBegin[0][1] - mean[1]);         // c22
+    retval[2][2] += localHelper::Squared(pBegin[0][2] - mean[2]);         // c33
+    retval[1][0] += (pBegin[0][0] - mean[0]) * (pBegin[0][1] - mean[1]);  // c12
+    retval[2][0] += (pBegin[0][0] - mean[0]) * (pBegin[0][2] - mean[2]);  // c13
+    retval[2][1] += (pBegin[0][1] - mean[1]) * (pBegin[0][2] - mean[2]);  // c23
+  }
+
+  retval[0][0] *= reciprocalN;  // c11
+  retval[1][1] *= reciprocalN;  // c22
+  retval[2][2] *= reciprocalN;  // c33
+  retval[1][0] *= reciprocalN;  // c12
+  retval[2][0] *= reciprocalN;  // c13
+  retval[2][1] *= reciprocalN;  // c23
+
+  retval[0][1] = retval[1][0];  // c21
+  retval[0][2] = retval[2][0];  // c31
+  retval[1][2] = retval[2][1];  // c32
+
+  return retval;
 }
 
 bool MTG::intersectionSphereSphere(Sphere const& s0, Sphere const& s1)

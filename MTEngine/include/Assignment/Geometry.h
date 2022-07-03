@@ -38,6 +38,8 @@
 namespace MTG
 {
 
+  glm::mat3 computeCovarianceMatrix(glm::vec3 const* pBegin, size_t nElems);
+
   inline float IntrinsicInverseSquare(float number)
   {
     return _mm_cvtss_f32(_mm_rsqrt_ss(_mm_set_ps1(number)));// ONLY FOR MSVC VERSION
