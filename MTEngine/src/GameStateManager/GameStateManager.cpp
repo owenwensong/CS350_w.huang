@@ -21,6 +21,7 @@ bool MTU::GameStateManager::s_bImGuiInUse{ false };
 #include <GameStateManager/GameStateBase.h>
 #include <GameStateManager/GS_Assignment_1.h>
 #include <GameStateManager/GS_Assignment_2.h>
+#include <GameStateManager/GS_Assignment_3.h>
 
 // return value is whether it should continue
 bool updateGameState(MTU::GameStateManager& rGSM, std::unique_ptr<MTU::GameState>& upGS, MTU::GS nextGS)
@@ -33,6 +34,9 @@ bool updateGameState(MTU::GameStateManager& rGSM, std::unique_ptr<MTU::GameState
     return true;
   case MTU::GS::E_ASSIGNMENT_2:
     upGS.reset(RC_HELPER(new MTU::GS_Assignment_2{ rGSM }));
+    return true;
+  case MTU::GS::E_ASSIGNMENT_3:
+    upGS.reset(RC_HELPER(new MTU::GS_Assignment_3{ rGSM }));
     return true;
 #undef RC_HELPER
   default:

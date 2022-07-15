@@ -701,6 +701,10 @@ MTU::GS_Assignment_2::GS_Assignment_2(GameStateManager& rGSM) :
 void MTU::GS_Assignment_2::Init()
 {
   GS_PRINT_FUNCSIG();
+
+  bool shouldStopTaskInit{ false };
+  MTU::ThreadTask isInitializingTask{ MTU::taskInitializing, &shouldStopTaskInit };
+
   m_Cam.m_AspectRatio = static_cast<float>(GSM.getVKWin()->m_windowsWindow.getWidth()) / GSM.getVKWin()->m_windowsWindow.getHeight();
   m_Cam.m_FOV = glm::radians(75.0f);
   // default constructed sensitivity
@@ -860,12 +864,24 @@ void MTU::GS_Assignment_2::Init()
 
   // ***************************************************************************
 
+  shouldStopTaskInit = true;
+  for (MTU::Timer lazyTimer{ MTU::Timer::getCurrentTP() }; false == isInitializingTask.isDone(); lazyTimer.stop())
+  { // Error if 1s goes by after the loading finishes but thread doesn't end
+    if (lazyTimer.getElapsedCount() / MTU::Timer::clockFrequency)
+    {
+      printf_s("Something has gone wrong! Attempting to continue...\n");
+      break;
+    }
+  }
+
 }
 
 void MTU::GS_Assignment_2::Update(uint64_t dt)
 {
   if (inputs.isTriggered(VK_F1))GSM.setNextGameState(GS::E_ASSIGNMENT_1);
   else if (inputs.isTriggered(VK_F2))GSM.setNextGameState(GS::E_RESTART);
+  else if (inputs.isTriggered(VK_F3))GSM.setNextGameState(GS::E_ASSIGNMENT_3);
+
   constexpr float reciprocalFrequency{ 1.0f / MTU::Timer::clockFrequency };
   float fdt{ dt * reciprocalFrequency };
 
@@ -882,7 +898,7 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
     ImGui::TextUnformatted("Hover tooltips:");
     IMGUI_SAMELINE_TOOLTIPV_HELPER("These (?) tooltips contain more information to use the program as intended\n\nExtra info:\n\nVertices: %d (total number of vertices in the scene)\nObjects RAM: %d B (Memory used to store per object pos, rot, scale, etc)\nModels RAM:  %d B (Memory used to store positions to calculate BVs)\nModels VRAM: %d B (GPU Memory used to store model data)", static_cast<int>(getNumSceneVertices()), static_cast<int>(getObjectsRam()), static_cast<int>(getModelsRAM()), static_cast<int>(getModelsVRAM()));
     ImGui::TextUnformatted("Window controls");
-    IMGUI_SAMELINE_TOOLTIPV_HELPER("F11: Fullscreen\n\n%s", "F1: Go to Assignment 1 state\nF2: Restart Assignment 2 state");
+    IMGUI_SAMELINE_TOOLTIPV_HELPER("F11: Fullscreen\n\n%s", "F1: Go to Assignment 1 state\nF2: Restart Assignment 2 state\nF1: Go to Assignment 3 state");
     ImGui::TextUnformatted("Camera controls");
     IMGUI_SAMELINE_TOOLTIP_HELPER("Right Mouse Button (hold): look around\nW: Move Forward\nA: Move Left\nS: Move Back\nD: Move Right\nSPACE: Move Upwards\nCONTROL: Move Downwards\nSHIFT (hold): Use speed multiplier");
 

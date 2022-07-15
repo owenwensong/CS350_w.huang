@@ -56,3 +56,22 @@ void MTU::taskLoading(void* pData)
   }
   printf_s("Loading%s\n", " complete!");
 }
+
+void MTU::taskInitializing(void* pData)
+{
+  if (pData == nullptr)
+  {
+    printf_s("NULLPTR PASSED TO TASK LOADING FUNCTION!\n");
+    return;
+  }
+  volatile bool& bShouldStop{ *reinterpret_cast<bool*>(pData) };
+  for (MTU::Timer lazyTimer{ MTU::Timer::getCurrentTP() }; false == bShouldStop; lazyTimer.stop())
+  {
+    if (lazyTimer.getElapsedCount() / MTU::Timer::clockFrequency)
+    {
+      printf_s("Initializing...\n");
+      lazyTimer.start();// reset the elapsed counter
+    }
+  }
+  printf_s("Initialization complete!\n");
+}
