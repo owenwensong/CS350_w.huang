@@ -3,7 +3,14 @@
  * @author  Owen Huang Wensong  [390008220]  (w.huang@digipen.edu)
  * @date    14 JUL 2022
  * @brief   Gamestate for assignment 3
- *
+ * 
+ * 
+ *          TODO:
+ *            Freeing the octtree
+ *            Polygon splitting on the octtree
+ *            model load from polygon
+ *            faces unused in buildocttree
+ * 
  * Copyright (C) 2022 DigiPen Institute of Technology. All rights reserved.
 *******************************************************************************/
 
@@ -33,10 +40,10 @@ namespace A3H
     return retval;
   }
 
-  static bool loadModels(MVA& ModelVerticesArray, MA& ModelArray)
+  static bool loadModels(MVA& ModelVerticesArray, MFA& ModelFacesArray, MA& ModelArray)
   {
     bool retval{ true };
-#define A2H_LOAD_MODEL_HELPER(enumA, strB) if (false == ModelArray[enumA].load3DNmlModel("../Assets/Meshes/" strB, ModelVerticesArray[enumA], true)) { printWarning("Failed to load model: " strB); retval = false; }
+#define A2H_LOAD_MODEL_HELPER(enumA, strB) if (false == ModelArray[enumA].load3DNmlModelGetFaces("../Assets/Meshes/" strB, ModelVerticesArray[enumA], ModelFacesArray[enumA], true)) { printWarning("Failed to load model: " strB); retval = false; }
     A2H_LOAD_MODEL_HELPER(E_MODEL_4SPHERE, "4Sphere.obj");
     A2H_LOAD_MODEL_HELPER(E_MODEL_BUNNY, "bunny.obj");
     A2H_LOAD_MODEL_HELPER(E_MODEL_LUCY_PRINCETON, "lucy_princeton.obj");
@@ -151,9 +158,405 @@ namespace A3H
   }
 
   // ***************************************************************************
+  // *************************************************** SPLITTING POLYGONS ****
+
+  // TAKE THE SPLIT PLANE IN LOCAL SPACE, IN OTHER WORDS, USE A^-1 ON THE PLANE
+  // OR NOT, JUST DO IN WORLD SPACE SO NO RUNTIME MULTIPLICATIONS
+  void splitPoly(VV& inPoly, MTG::Plane const& splitPlane, VV& frontPoly, VV& backPoly)
+  {
+    inPoly.emplace_back(inPoly.front());
+    for (auto j{ inPoly.begin() }, i{ j++ }, k{ inPoly.end() }; j < k; i = j++)
+    {
+      MTG::Ray edge{ *i, *j - *i };
+      float tIntersect;
+      switch (MTG::intersectionEdgePlaneSpecial(edge, splitPlane, tIntersect))
+      {
+      case MTG::EPSResult::E_COPLANAR:
+      case MTG::EPSResult::E_INSIDE:
+        backPoly.emplace_back(*j);
+        break;
+      case MTG::EPSResult::E_OUTSIDE:
+        frontPoly.emplace_back(*j);
+        break;
+      case MTG::EPSResult::E_INSIDE_TO_OUTSIDE:
+      {
+        glm::vec3 planeIntersect{ edge.m_Point + tIntersect * edge.m_Direction };
+        frontPoly.emplace_back(planeIntersect);
+        backPoly.emplace_back(planeIntersect);
+      }
+        frontPoly.emplace_back(*j);
+        break;
+      case MTG::EPSResult::E_OUTSIDE_TO_INSIDE:
+      {
+        glm::vec3 planeIntersect{ edge.m_Point + tIntersect * edge.m_Direction };
+        frontPoly.emplace_back(planeIntersect);
+        backPoly.emplace_back(planeIntersect);
+      }
+        backPoly.emplace_back(*j);
+        break;
+      }
+    }
+    inPoly.pop_back();
+
+    // help with some polygons being wonky
+    if (frontPoly.size() < 3)
+    {
+      frontPoly.resize(0);
+      backPoly = inPoly;
+    }
+    else if (backPoly.size() < 3)
+    {
+      backPoly.resize(0);
+      frontPoly = inPoly;
+    }
+  }
+
+  size_t getNumTriangles(FV const& inPolys)
+  {
+    size_t retval{ 0 };
+    for (auto const& x : inPolys)
+    {
+      assert(x.size() >= 3);  // minimum polygon is a triangle
+      retval += x.size() - 2; // assume convex polygon (it should be anyway)
+    }
+    return retval;
+  }
+
+  void triangulatePolygons(FV const& inPolys, VV& outPositions, IV& outIndices)
+  {
+    // reserve space to reduce number of allocations
+    {
+      size_t vSpace{ 0 }, iSpace{ 0 };
+      for (auto const& x : inPolys)
+      {
+        vSpace += x.size();           // number of vertices
+        iSpace += 3 * (x.size() - 2); // number of triangles * 3
+      }
+      outPositions.clear();
+      outIndices.clear();
+      outPositions.reserve(vSpace);
+      outIndices.reserve(iSpace);
+      //std::cout << "vSpace: " << vSpace << std::endl;
+      //std::cout << "iSpace: " << iSpace << std::endl;
+    }
+
+    // fill positions and indices
+    for (auto const& x : inPolys)
+    {
+      // get offset as indices start
+      size_t indexOffset{ outPositions.size() };
+
+      // emplace vertices
+      for (auto const& y : x)
+      {
+        outPositions.emplace_back(y);
+      }
+
+      // emplace indices
+      for (size_t i{ 1 }, j{ 2 }, t{ x.size() }; j < t; i = j++)
+      {
+        outIndices.emplace_back(static_cast<IV::value_type>(indexOffset));
+        outIndices.emplace_back(static_cast<IV::value_type>(indexOffset + i));
+        outIndices.emplace_back(static_cast<IV::value_type>(indexOffset + j));
+      }
+    }
+
+    //std::cout << "vFinal: " << outPositions.size() << std::endl;
+    //std::cout << "iFinal: " << outIndices.size() << std::endl;
+  }
+
+  vulkanModel loadFromPolygons(FV const& inPolys)
+  {
+    windowHandler* pWH{ windowHandler::getPInstance() };
+    assert(pWH != nullptr);// debug only, flow should be pretty standard.
+
+    vulkanModel retval;
+    VV positions;
+    IV indices;
+    triangulatePolygons(inPolys, positions, indices);
+
+    retval.m_VertexCount = static_cast<uint32_t>(positions.size());
+    retval.m_IndexCount = static_cast<uint32_t>(indices.size());
+    retval.m_IndexType = VK_INDEX_TYPE_UINT32;
+
+    // set up vertex buffer
+    if (false == pWH->createBuffer(retval.m_Buffer_Vertex, vulkanBuffer::Setup{ vulkanBuffer::s_BufferUsage_Vertex, vulkanBuffer::s_MemPropFlag_Vertex, retval.m_VertexCount, sizeof(decltype(positions)::value_type) }))
+    {
+      printWarning("failed to create mesh vertex buffer");
+      retval.destroyModel();
+      return vulkanModel{ /* return default struct if fail */ };
+    }
+
+    // write to vertex buffer
+    pWH->writeToBuffer(retval.m_Buffer_Vertex, { positions.data() }, { static_cast<VkDeviceSize>(positions.size() * sizeof(decltype(positions)::value_type)) });
+    
+    // set up index buffer
+    if (false == pWH->createBuffer(retval.m_Buffer_Index, vulkanBuffer::Setup{ vulkanBuffer::s_BufferUsage_Index, vulkanBuffer::s_MemPropFlag_Index, retval.m_IndexCount, sizeof(decltype(indices)::value_type) }))
+    {
+      printWarning("failed to create mesh index buffer");
+      retval.destroyModel();
+      return vulkanModel{ /* return default struct if fail */ };
+    }
+
+    // write to index buffer
+    pWH->writeToBuffer(retval.m_Buffer_Index, { indices.data() }, { static_cast<VkDeviceSize>(indices.size() * sizeof(decltype(indices)::value_type)) });
+
+    return retval;
+  }
+
+  // ***************************************************************************
+  // ************************************************************** OCTTREE ****
+
+  bool isStraddling(TreeNode* pNode, Object const& inObj, int& outIndex)
+  {
+    outIndex = 0;
+    glm::vec3 objExtent{ 0.5f * (inObj.m_AABB.m_Max - inObj.m_AABB.m_Min) };
+    glm::vec3 objCenter{ inObj.m_AABB.m_Min + objExtent };
+    for (glm::vec3::length_type i{ 0 }; i < 3; ++i)
+    {
+      float d{ objCenter[i] - pNode->m_Center[i] };
+      if (std::fabsf(d) <= objExtent[i])return true;
+      if (false == std::signbit(d))outIndex |= (1 << i);
+    }
+    return false;
+  }
+
+  TreeNode* createChildNode(TreeNode const* pParent, int index)
+  {
+    TreeNode* retval{ new TreeNode };
+    retval->m_HalfWidth = 0.5f * pParent->m_HalfWidth;
+    retval->m_Center.x = pParent->m_Center.x + (index & 0b001 ? retval->m_HalfWidth : -retval->m_HalfWidth);
+    retval->m_Center.y = pParent->m_Center.y + (index & 0b010 ? retval->m_HalfWidth : -retval->m_HalfWidth);
+    retval->m_Center.z = pParent->m_Center.z + (index & 0b100 ? retval->m_HalfWidth : -retval->m_HalfWidth);
+    return retval;
+  }
+
+  // to be only called by buildOctTree, fragile design.
+  void insertIntoOctTree(TreeNode* pNode, Object const& inObj, Object::Proxy inObjProxy)
+  {
+    int index;
+    if (true == isStraddling(pNode, inObj, index))
+    {
+      pNode->m_Objects.emplace_back(inObjProxy);
+      return;
+    }
+
+    TreeNode*& newNode{ pNode->m_Data.asInternal.m_pChild[index] };
+    if (nullptr == newNode)newNode = createChildNode(pNode, index);
+    insertIntoOctTree(newNode, inObj, inObjProxy);
+  }
+
+  void generateOctantFaces(FV& inPolys, std::array<FV, 8>& outFVs, glm::vec3 const& splitPoint)
+  {
+    // 00: 000 & 001 (back), 01: 010 & 011 (front)
+    // 10: 100 & 101 (back), 11: 110 & 111 (front)
+    std::array<FV, 4> yzSplit;
+    {
+      std::array<FV, 2> zSplit;// 0: 000 to 011 (back), 1: 100 to 111 (front)
+
+      // populate front and back of zSplit temporarily
+      {
+        MTG::Plane zSplitPlane{ glm::vec3{ 0.0f, 0.0f, 1.0f }, splitPoint, 69 };
+        for (auto& x : inPolys)
+        {
+          VV frontPoly, backPoly;
+          splitPoly(x, zSplitPlane, frontPoly, backPoly);
+          if (0 != frontPoly.size())zSplit[0].emplace_back(std::move(frontPoly));
+          if (0 != backPoly.size())zSplit[1].emplace_back(std::move(backPoly));
+        }
+      }
+
+
+      // populate front and back of yzSplit temporarily
+      {
+        MTG::Plane ySplitPlane{ glm::vec3{ 0.0f, 1.0f, 0.0f }, splitPoint, 69 };
+        for (size_t i{ 0 }; i < 2; ++i)
+        {
+          size_t baseIndex{ i << 1 };
+          for (auto& x : zSplit[i])
+          {
+            VV frontPoly, backPoly;
+            splitPoly(x, ySplitPlane, frontPoly, backPoly);
+            //if (0 != frontPoly.size())yzSplit[i ? 0b11 : 0b01].emplace_back(std::move(frontPoly));
+            //if (0 != backPoly.size())yzSplit[i ? 0b10 : 0b00].emplace_back(std::move(backPoly));
+            if (0 != frontPoly.size())yzSplit[baseIndex].emplace_back(std::move(frontPoly));
+            if (0 != backPoly.size())yzSplit[baseIndex | 1].emplace_back(std::move(backPoly));
+          }
+        }
+      }
+    }
+
+    // finally populate the octant faces
+    MTG::Plane xSplitPlane{ glm::vec3{ 1.0f, 0.0f, 0.0f }, splitPoint, 69 };
+    for (size_t i{ 0 }; i < 4; ++i)
+    {
+      size_t baseIndex{ i << 1 };
+      for (auto& x : yzSplit[i])
+      {
+        VV frontPoly, backPoly;
+        splitPoly(x, xSplitPlane, frontPoly, backPoly);
+        if (0 != frontPoly.size())outFVs[baseIndex].emplace_back(std::move(frontPoly));
+        if (0 != backPoly.size())outFVs[baseIndex | 1].emplace_back(std::move(backPoly));
+      }
+    }
+
+  }
+
+  void subDivideOctTreeGeometry(TreeNode* pNode, OV const& objects, MFA const& faces, int maxTriPerCell, FV&& inPolys)
+  {
+    // Add any children into the polygon list
+    for (auto x : pNode->m_Objects)
+    {
+      size_t faceIndex{ static_cast<size_t>(objects[x].m_Model) };
+      glm::mat3 linearxform{ objects[x].m_M2W };
+      glm::vec3 translate{ objects[x].m_M2W[3] };
+      inPolys.reserve(faces[faceIndex].size() + inPolys.size());
+      std::transform
+      (
+        faces[faceIndex].begin(),
+        faces[faceIndex].end(),
+        std::back_inserter(inPolys),
+        [&](VV const& inFace)
+        {
+          VV retval{ inFace };
+          assert(retval.size() >= 3);
+          for (glm::vec3& vertex : retval)
+          {
+            vertex = linearxform * vertex + translate;
+          }
+          return retval;
+        }
+      );
+    }
+
+    // Check condition (if it's not a leaf alr the children might have more geometry)
+    {
+      bool leafCheck{ std::all_of(pNode->m_Data.asInternal.m_pChild.begin(), pNode->m_Data.asInternal.m_pChild.end(), +[](TreeNode const* inPtr) { return nullptr == inPtr;  }) };
+      if (leafCheck && getNumTriangles(inPolys) < static_cast<size_t>(maxTriPerCell))
+      {
+        pNode->m_bIsLeaf = true;
+
+        // Generate mesh to be drawn
+        pNode->m_Data.asLeaf.m_Mesh = loadFromPolygons(inPolys);
+
+        // This is where to save geometry in case I need it?      
+        //pNode->m_Data.asLeaf.m_Geometry = std::move(inPolys);
+
+        return;
+      }
+    }
+
+    // Divide
+    std::array<FV, 8> tempFVs;
+    generateOctantFaces(inPolys, tempFVs, pNode->m_Center);
+    inPolys.resize(0);// inPolys is a subset of the union of all tempFVs
+    for (int i{ 0 }; i < 8; ++i)
+    {
+      if (tempFVs[i].empty())
+      {
+        if (nullptr != pNode->m_Data.asInternal.m_pChild[i])
+        {
+          subDivideOctTreeGeometry(pNode->m_Data.asInternal.m_pChild[i], objects, faces, maxTriPerCell, {});
+        }
+      }
+      else
+      {
+        TreeNode*& pChild{ pNode->m_Data.asInternal.m_pChild[i] };
+        if (nullptr == pChild)pChild = createChildNode(pNode, i);
+        subDivideOctTreeGeometry(pChild, objects, faces, maxTriPerCell, std::move(tempFVs[i]));
+      }
+    }
+
+  }
+
+  TreeNode* buildOctTree(OV const& objects, MFA const& faces, int maxTriPerCell)
+  {
+    if (0 == objects.size())return nullptr;
+
+    TreeNode* retval{ new TreeNode };
+    {
+      // get AABB of all objects
+      MTG::AABB extents{ glm::vec3{ std::numeric_limits<float>::max() }, glm::vec3{ std::numeric_limits<float>::lowest() } };
+      for (auto const& x : objects)
+      {
+#define EXTENTSHELPER(memA, memB, cmpC) if (x.m_AABB.memA.memB cmpC extents.memA.memB)extents.memA.memB = x.m_AABB.memA.memB
+        EXTENTSHELPER(m_Min, x, <);
+        EXTENTSHELPER(m_Min, y, <);
+        EXTENTSHELPER(m_Min, z, <);
+        EXTENTSHELPER(m_Max, x, >);
+        EXTENTSHELPER(m_Max, y, >);
+        EXTENTSHELPER(m_Max, z, >);
+#undef EXTENTSHELPER
+      }
+
+      // get top level octtree size
+      glm::vec3 halfWidths{ 0.5f * (extents.m_Max - extents.m_Min) };
+      retval->m_Center = extents.m_Min + halfWidths;
+      retval->m_HalfWidth = std::max(std::max(halfWidths.x, halfWidths.y), halfWidths.z);
+    }
+
+    // insert objects into octree
+    for (Object::Proxy i{ 0 }, t{ objects.size() }; i < t; ++i)
+    {
+      insertIntoOctTree(retval, objects[i], i);
+    }
+
+    // Break up geometry & load final meshes, expands octtree based on maxTriPerCell
+    subDivideOctTreeGeometry(retval, objects, faces, maxTriPerCell, {});
+    
+    return retval;
+  }
+
+  void destroyOctTree(TreeNode* pNode)
+  {
+    if (nullptr == pNode)return;
+    if (true == pNode->m_bIsLeaf)
+    {
+      pNode->m_Data.asLeaf.m_Mesh.destroyModel();
+    }
+    else for (TreeNode* pChild : pNode->m_Data.asInternal.m_pChild)
+    {
+      destroyOctTree(pChild);
+    }
+    delete pNode;
+  }
+
+  template <typename funcType>
+  void depthFirst(TreeNode* pTree, funcType pFn, size_t currDepth = 0)
+  {
+    if (nullptr == pTree)return;
+
+    pFn(pTree, currDepth);
+
+    if (true == pTree->m_bIsLeaf)return;
+
+    for (auto& x : pTree->m_Data.asInternal.m_pChild)
+    {
+      if (nullptr == x)continue;
+      depthFirst(x, pFn, currDepth + 1);
+    }
+  }
+
+  // ***************************************************************************
 
   static const glm::vec3 AABB_WireColor{ 0.0625f, 1.0f, 0.0625f };
   static const glm::vec3 BS_Pearson_WireColor{ 0.0625f, 0.0625f, 1.0f };
+  static const std::array<glm::vec3, 13> WireColors
+  {
+    glm::vec3{ 1.0f, 0.0f, 0.0f },
+    glm::vec3{ 0.0f, 1.0f, 0.0f },
+    glm::vec3{ 0.0f, 0.0f, 1.0f },
+    glm::vec3{ 0.0f, 0.75f, 0.5f },
+    glm::vec3{ 1.0f, 0.25f, 0.25f },
+    glm::vec3{ 1.0f, 0.75f, 0.125f },
+    glm::vec3{ 0.75f, 0.75f, 0.0f },
+    glm::vec3{ 0.5f, 0.75f, 0.25f },
+    glm::vec3{ 1.0f, 1.0f, 1.0f },
+    glm::vec3{ 0.75f, 0.25f, 0.75f },
+    glm::vec3{ 0.25f, 0.25f, 0.75f },
+    glm::vec3{ 0.5f, 0.75f, 1.0f },
+    glm::vec3{ 0.5f, 0.5f, 0.5f },
+  };
 
 }
 
@@ -167,11 +570,16 @@ MTU::GS_Assignment_3::GS_Assignment_3(GameStateManager& rGSM) :
   m_Pipelines{  },
   m_DebugModels{  },
   m_Vertices{  },
+  m_Faces{  },
   m_Models{  },
   m_Objects{  },
+  m_OctTree{ nullptr },
   m_bEditMode{  },
+  m_bDrawObj{  },
   m_bDrawAABB{  },
-  m_bDrawBS_Pearson{  }
+  m_bDrawBS_Pearson{  },
+  m_bDrawOctTreeBounds{  },
+  m_bDrawOctTreeTris{  }
 {
   GS_PRINT_FUNCSIG();
 
@@ -188,11 +596,11 @@ MTU::GS_Assignment_3::GS_Assignment_3(GameStateManager& rGSM) :
   }
 
   // Load models
-  if (false == A3H::loadModels(m_Vertices, m_Models))
+  if (false == A3H::loadModels(m_Vertices, m_Faces, m_Models))
   {
     printWarning("Failed to load one or more models, please check file structure!");
   }
-
+  
   // Load pipelines
   if (false == A3H::loadPipelines(m_Pipelines, GSM.getVKWin()))
   {
@@ -361,9 +769,20 @@ void MTU::GS_Assignment_3::Init()
   // ***************************************************************************
   // *************************************************** SET BOOLS AND MORE ****
 
+#if defined(DEBUG) || defined(_DEBUG)
+  m_Octree_TriPerCell = s_OctTreeDefTriPerCell;
+#else
+  m_Octree_TriPerCell = s_OctTreeMinTriPerCell + (s_OctTreeDefTriPerCell - s_OctTreeMinTriPerCell) / 15;
+#endif
+  CreateOctTree();
+
   m_bEditMode = false;
+  m_bDrawObj = false;
   m_bDrawAABB = false;
   m_bDrawBS_Pearson = false;
+
+  m_bDrawOctTreeBounds = false;
+  m_bDrawOctTreeTris = true;
 
   // ***************************************************************************
 
@@ -433,8 +852,19 @@ void MTU::GS_Assignment_3::Update(uint64_t dt)
     // draw checkbox
     ImGui::Separator();
     ImGui::TextUnformatted("Bounding Volumes");
+    IMGUI_COLOR_CHECKBOX_HELPER("draw solid objects", m_bDrawObj, m_LightColor);
     IMGUI_COLOR_CHECKBOX_HELPER("draw AABB", m_bDrawAABB, A3H::AABB_WireColor);
     IMGUI_COLOR_CHECKBOX_HELPER("draw BS Pearson (PCA)", m_bDrawBS_Pearson, A3H::BS_Pearson_WireColor);
+
+    ImGui::Separator();
+    ImGui::TextUnformatted("Spatial Partitioning");
+    IMGUI_SAMELINE_TOOLTIP_HELPER("Due to the implementation in use, the default Triangle per cell limit is raised.\nLowering this may fill up your system's VRAM.\n\nKnown good values (number of triangles per cell/partition):\nAMD Radeon Integrated Graphics (512MB VRAM): 2280 OctTree | 0 BSP\nNvidia RTX 3060 Mobile (6GM VRAM): 300 OctTree | 0 BSP");
+    ImGui::SliderInt("Tri per cell (OctTree)", &m_Octree_TriPerCell, s_OctTreeMinTriPerCell, s_OctTreeDefTriPerCell);
+    if (ImGui::Button("Recreate OctTree"))CreateOctTree();
+    if (ImGui::Button("Destroy OctTree"))DestroyOctTree();
+    IMGUI_SAMELINE_TOOLTIP_HELPER("You may want to destroy the OctTree.\nThis will free VRAM for finer cell for the BSP.");
+    ImGui::Checkbox("draw OctTree Bounds", &m_bDrawOctTreeBounds);
+    ImGui::Checkbox("draw OctTree Triangles", &m_bDrawOctTreeTris);
 
     // SCENE OBJECTS EDITOR (DISABLED FOR ASSIGNMENT 3)
     ImGui::Separator();
@@ -571,15 +1001,18 @@ void MTU::GS_Assignment_3::Draw()
   if (FCB == VK_NULL_HANDLE)return;
 
   GSM.getVKWin()->createAndSetPipeline(m_Pipelines[A3H::E_PIPELINE_BASICLIGHT]);
-  m_Pipelines[A3H::E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 16, sizeof(glm::vec3), &m_LightColor);
-  for (auto& x : m_Objects)
+  if (true == m_bDrawObj)
   {
-    glm::mat4 xform{ m_Cam.m_W2V * x.m_M2W };
-    glm::vec3 lightpos{ x.m_W2M * glm::vec4{ m_Cam.m_Pos, 1.0f } };
+    m_Pipelines[A3H::E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 16, sizeof(glm::vec3), &m_LightColor);
+    for (auto& x : m_Objects)
+    {
+      glm::mat4 xform{ m_Cam.m_W2V * x.m_M2W };
+      glm::vec3 lightpos{ x.m_W2M * glm::vec4{ m_Cam.m_Pos, 1.0f } };
 
-    m_Pipelines[A3H::E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &lightpos);
-    m_Pipelines[A3H::E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
-    m_Models[x.m_Model].draw(FCB);
+      m_Pipelines[A3H::E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &lightpos);
+      m_Pipelines[A3H::E_PIPELINE_BASICLIGHT].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
+      m_Models[x.m_Model].draw(FCB);
+    }
   }
 
   GSM.getVKWin()->createAndSetPipeline(m_Pipelines[A3H::E_PIPELINE_WIREFRAME]);
@@ -610,6 +1043,50 @@ void MTU::GS_Assignment_3::Draw()
     }
   }
 
+  if (nullptr != m_OctTree)
+  {
+    m_Pipelines[A3H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &A3H::AABB_WireColor);
+    
+    
+
+    if (true == m_bDrawOctTreeTris)
+    {
+      size_t colIdx{ 0 };
+      A3H::depthFirst
+      (
+        m_OctTree,
+        [&](A3H::TreeNode* pTree, size_t /*currDepth*/)
+        {
+          if (pTree->m_bIsLeaf)
+          {
+            colIdx = (colIdx + 1) % A3H::WireColors.size();
+            m_Pipelines[A3H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &A3H::WireColors[colIdx]);
+            m_Pipelines[A3H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &m_Cam.m_W2V);
+            pTree->m_Data.asLeaf.m_Mesh.draw(FCB);
+          }
+
+        }
+      );
+    }
+
+    if (true == m_bDrawOctTreeBounds)
+    {
+      A3H::depthFirst
+      (
+        m_OctTree,
+        [&](A3H::TreeNode* pTree, size_t currDepth)
+        {
+          glm::mat4 xform{ m_Cam.m_W2V * A3H::getOctTreeAABBMat(pTree) };
+          m_Pipelines[A3H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &A3H::WireColors[currDepth % A3H::WireColors.size()]);
+          m_Pipelines[A3H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
+          m_DebugModels[A3H::E_DEBUGMODEL_CUBE].draw(FCB);
+        }
+      );
+    }
+    
+
+  }
+
 }
 
 void MTU::GS_Assignment_3::Free()
@@ -617,6 +1094,9 @@ void MTU::GS_Assignment_3::Free()
   GS_PRINT_FUNCSIG();
 
   m_Objects.clear();// double call, consider removing one?
+  
+  DestroyOctTree();
+
 }
 
 MTU::GS_Assignment_3::~GS_Assignment_3()
@@ -735,6 +1215,33 @@ void A3H::Object::computeBoundingVolumes(MVA const& inModelVertexArray)
 //  return retval;
 //}
 
+void MTU::GS_Assignment_3::CreateOctTree()
+{
+  A3H::destroyOctTree(m_OctTree);
+
+  bool shouldStopTaskWorking{ false };
+  MTU::ThreadTask isLoadingTask{ MTU::taskWorking, &shouldStopTaskWorking };
+
+  m_OctTree = A3H::buildOctTree(m_Objects, m_Faces, m_Octree_TriPerCell);
+
+  shouldStopTaskWorking = true;
+  for (MTU::Timer lazyTimer{ MTU::Timer::getCurrentTP() }; false == isLoadingTask.isDone(); lazyTimer.stop())
+  { // Error if 1s goes by after the loading finishes but thread doesn't end
+    if (lazyTimer.getElapsedCount() / MTU::Timer::clockFrequency)
+    {
+      printf_s("Something has gone wrong! Attempting to continue...\n");
+      break;
+    }
+  }
+
+}
+
+void MTU::GS_Assignment_3::DestroyOctTree()
+{
+  A3H::destroyOctTree(m_OctTree);
+  m_OctTree = nullptr;
+}
+
 // *****************************************************************************
 // ******************************************************** OTHER FUNCTIONS ****
 
@@ -748,6 +1255,13 @@ glm::mat4 A3H::getBSMat(MTG::Sphere const& inBS) noexcept
 { // normalized sphere model, diameter is 1 so take 2 * radius for matrix scale
   float uniformScale{ 2.0f * inBS.m_Radius };
   return glm::mat4{ uniformScale, 0.0f, 0.0f, 0.0f, 0.0f, uniformScale, 0.0f, 0.0f, 0.0f, 0.0f, uniformScale, 0.0f, inBS.m_Center.x, inBS.m_Center.y, inBS.m_Center.z, 1.0f };
+}
+
+glm::mat4 A3H::getOctTreeAABBMat(TreeNode const* inNode) noexcept
+{
+  if (nullptr == inNode)return glm::mat4{ 0.0f };
+  float uniformScale{ 2.0f * inNode->m_HalfWidth };
+  return glm::mat4{ uniformScale, 0.0f, 0.0f, 0.0f, 0.0f, uniformScale, 0.0f, 0.0f, 0.0f, 0.0f, uniformScale, 0.0f, inNode->m_Center.x, inNode->m_Center.y, inNode->m_Center.z, 1.0f };
 }
 
 // *****************************************************************************

@@ -16,6 +16,8 @@
 #include <utility/vertices.h>
 #include <vulkanHelpers/vulkanBuffer.h>
 
+#include <Assignment/Geometry.h>  // for assignment 3 faces
+
 struct vulkanModel
 {
   vulkanBuffer  m_Buffer_Vertex;
@@ -32,7 +34,8 @@ struct vulkanModel
 
   bool load3DUVModel(std::string_view const&);
   bool load3DModelPositionOnly(std::string_view const&, bool normalize = false);  // for assignment
-  bool load3DNmlModel(std::string_view const&, std::vector<glm::vec3>& outPositions, bool normalize = false);           // for assignment
+  bool load3DNmlModel(std::string_view const&, std::vector<glm::vec3>& outPositions, bool normalize = false); // for assignment
+  bool load3DNmlModelGetFaces(std::string_view const&, std::vector<glm::vec3>& outPositions, std::vector<std::vector<glm::vec3>>& outFaces, bool normalize = false); // for assignment
   void destroyModel();
 
 };

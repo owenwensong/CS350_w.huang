@@ -57,6 +57,7 @@ namespace MTG
   {
     Plane() = default;
     Plane(glm::vec3 inNormal, glm::vec3 point);
+    Plane(glm::vec3 inNormalizedNormal, glm::vec3 point, int);
 
     Plane(Plane const&) = default;
     Plane(Plane&&) = default;
@@ -170,6 +171,18 @@ namespace MTG
   bool intersectionPointTriangle(Point3D const&, Triangle const&, Vector3D& outBarycentric);
   // -1 Outside half plane, 0 Coplanar to plane, 1 Inside half plane
   int cmpPointPlane(Point3D const&, Plane const&, float inEpsilon = FLT_EPSILON);
+
+  enum class EPSResult : int
+  {
+    E_COPLANAR = 0,
+    E_INSIDE = 1,
+    E_OUTSIDE = -1,
+    E_INSIDE_TO_OUTSIDE = 2,
+    E_OUTSIDE_TO_INSIDE = -2
+  };
+
+  // assumes edge is length of ray direction component
+  EPSResult intersectionEdgePlaneSpecial(Ray const&, Plane const&, float& outTime);
 
   bool intersectionRayPlane(Ray const&, Plane const&, float& outTime);
   bool intersectionRayAABB(Ray const&, AABB const&, float& outTime);

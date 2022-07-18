@@ -38,6 +38,17 @@ bool MTU::ThreadTask::isDone() const noexcept
   return m_TData.m_bDone;
 }
 
+static const char* dotsFromNum(int inDots)
+{
+  switch (inDots)
+  {
+  default: return "";
+  case 1: return ".";
+  case 2: return "..";
+  case 3: return "...";
+  }
+}
+
 void MTU::taskLoading(void* pData)
 {
   if (pData == nullptr)
@@ -45,12 +56,14 @@ void MTU::taskLoading(void* pData)
     printf_s("NULLPTR PASSED TO TASK LOADING FUNCTION!\n");
     return;
   }
+  int numDots{ 0 };
   volatile bool& bShouldStop{ *reinterpret_cast<bool*>(pData) };
   for (MTU::Timer lazyTimer{ MTU::Timer::getCurrentTP() }; false == bShouldStop; lazyTimer.stop())
   {
     if (lazyTimer.getElapsedCount() / MTU::Timer::clockFrequency)
     {
-      printf_s("Loading%s\n", "...");
+      printf_s("Loading%s\n", dotsFromNum(numDots));
+      numDots = (numDots + 1) % 4;
       lazyTimer.start();// reset the elapsed counter
     }
   }
@@ -64,14 +77,38 @@ void MTU::taskInitializing(void* pData)
     printf_s("NULLPTR PASSED TO TASK LOADING FUNCTION!\n");
     return;
   }
+  int numDots{ 0 };
   volatile bool& bShouldStop{ *reinterpret_cast<bool*>(pData) };
   for (MTU::Timer lazyTimer{ MTU::Timer::getCurrentTP() }; false == bShouldStop; lazyTimer.stop())
   {
     if (lazyTimer.getElapsedCount() / MTU::Timer::clockFrequency)
     {
-      printf_s("Initializing...\n");
+      printf_s("Initializing%s\n", dotsFromNum(numDots));
+      numDots = (numDots + 1) % 4;
       lazyTimer.start();// reset the elapsed counter
     }
   }
   printf_s("Initialization complete!\n");
+}
+
+void MTU::taskWorking(void* pData)
+{
+  if (pData == nullptr)
+  {
+    printf_s("NULLPTR PASSED TO TASK LOADING FUNCTION!\n");
+    return;
+  }
+  volatile bool& bShouldStop{ *reinterpret_cast<bool*>(pData) };
+  int numDots{ 0 };
+  for (MTU::Timer lazyTimer{ MTU::Timer::getCurrentTP() }; false == bShouldStop; lazyTimer.stop())
+  {
+    static constexpr auto printFrequency{ 3 * MTU::Timer::clockFrequency };
+    if (lazyTimer.getElapsedCount() / printFrequency)
+    {
+      printf_s("Working%s\n", dotsFromNum(numDots));
+      numDots = (numDots + 1) % 4;
+      lazyTimer.start();// reset the elapsed counter
+    }
+  }
+  printf_s("Work Done!\n");
 }

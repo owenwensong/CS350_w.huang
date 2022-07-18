@@ -91,8 +91,11 @@ namespace A3H // Assignment 3 Helper namespace
   using PLA = std::array<vulkanPipeline, E_NUM_PIPELINES>;// PipeLine Array
   using DMA = std::array<vulkanModel, E_NUM_DEBUGMODELS>; // Debug Model Array
   using  MA = std::array<vulkanModel, E_NUM_MODELS>;      // Model Array
-  using  VV = std::vector<glm::vec3>;                     // Vertex vector
+  using  VV = std::vector<glm::vec3>;                     // Vertex Vector
+  using  IV = std::vector<uint32_t>;                      // Index Vector
+  using  FV = std::vector<VV>;                            // Face Vector
   using MVA = std::array<VV, E_NUM_MODELS>;               // Model Vertices Array
+  using MFA = std::array<FV, E_NUM_MODELS>;               // Model Faces Array
   using  OV = std::vector<Object>;                        // Object vector
 
 // *****************************************************************************
@@ -119,6 +122,33 @@ namespace A3H // Assignment 3 Helper namespace
 
   };
 
+  struct TreeNode
+  {
+    static constexpr std::array<TreeNode*, 8> s_pChildInit
+    {
+      nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr
+    };// make sure it initializes to nullptr fully all the time
+
+    glm::vec3 m_Center;   // center of this
+    float     m_HalfWidth;// half extents of this node
+
+    std::vector<Object::Proxy> m_Objects; // objects contained at this level
+
+    union nodeType
+    {
+      struct internalType
+      {
+        std::array<TreeNode*, 8> m_pChild;
+      } asInternal;
+      struct leafType
+      {
+        vulkanModel m_Mesh;     // so I can draw the geometry
+      } asLeaf;
+    } m_Data{ s_pChildInit };
+
+    bool m_bIsLeaf{ false };
+  };
+
 // *****************************************************************************
 // *****************************************************************************
 // *********************************************** TYPEDEFS FOR CONVENIENCE ****
@@ -130,6 +160,7 @@ namespace A3H // Assignment 3 Helper namespace
 
   glm::mat4 getAABBMat(MTG::AABB const& inAABB) noexcept;
   glm::mat4 getBSMat(MTG::Sphere const& inBS) noexcept;
+  glm::mat4 getOctTreeAABBMat(TreeNode const* inNode) noexcept;
 
 // *****************************************************************************
 }
@@ -164,6 +195,9 @@ namespace MTU
 
     //size_t getModelsVRAM() const noexcept;
 
+    void CreateOctTree();
+    void DestroyOctTree();
+
   private:
     windowsInput& inputs;
 
@@ -172,15 +206,26 @@ namespace MTU
     float     m_CamMoveSpeed;
     float     m_CamFastModifier;
 
-    A3H::PLA m_Pipelines;    // rendering pipelines
-    A3H::DMA m_DebugModels;  // debug meshes
-    A3H::MVA m_Vertices;     // model raw vertices
-    A3H::MA  m_Models;       // assignment models
-    A3H::OV  m_Objects;      // objects
+    A3H::PLA m_Pipelines;   // rendering pipelines
+    A3H::DMA m_DebugModels; // debug meshes
+    A3H::MVA m_Vertices;    // model raw vertices
+    A3H::MFA m_Faces;       // model raw faces
+    A3H::MA  m_Models;      // assignment models
+    A3H::OV  m_Objects;     // objects
+
+    A3H::TreeNode* m_OctTree; // OctTree
+
+    int m_Octree_TriPerCell;  // termination criteria for the octree
+    static constexpr int s_OctTreeMinTriPerCell{ 300 };
+    static constexpr int s_OctTreeDefTriPerCell{ 30000 };
 
     bool m_bEditMode;
+    bool m_bDrawObj;
     bool m_bDrawAABB;
     bool m_bDrawBS_Pearson;
+
+    bool m_bDrawOctTreeBounds;
+    bool m_bDrawOctTreeTris;
 
   };
 }

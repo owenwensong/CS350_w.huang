@@ -17,9 +17,13 @@ const float c_AmbientStrength = 0.0625;
 void main()
 {
   vec3 lightDir = normalize(pc_LocalCamPos - v_Pos);
-  vec3 camDir = normalize(v_Pos - pc_LocalCamPos);
+  //vec3 camDir = normalize(v_Pos - pc_LocalCamPos);
+  // using negation because using camera as light source
+  vec3 camDir = -lightDir;
   
-  float specularAmt = max( 0, dot(v_Nml, normalize( lightDir - camDir )));
+  //float specularAmt = max( 0, dot(v_Nml, normalize( lightDir - camDir )));
+  // c = -l therefore l - c = l --l = 2l therefore norm(l-c) = l since alr normed
+  float specularAmt = max( 0, dot(v_Nml, lightDir));
   
   f_FragColor = vec4(pow(vec3(c_AmbientStrength) + pc_LightCol * specularAmt, vec3(c_Gamma)), 1);
 }

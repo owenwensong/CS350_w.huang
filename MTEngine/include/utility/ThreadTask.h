@@ -37,6 +37,7 @@ namespace MTU
   // could have used given struct with string and print frequency but lazy...
   void taskLoading(void* pBoolShouldStop);// to use while loading gamestates
   void taskInitializing(void* pBoolShouldStop);// to use while initializing
+  void taskWorking(void* pBoolShouldStop);// to use while doing general stuff
 
 }
 

@@ -21,6 +21,13 @@ MTG::Plane::Plane(glm::vec3 inNormal, glm::vec3 point) :
 
 }
 
+MTG::Plane::Plane(glm::vec3 inNormalizedNormal, glm::vec3 point, int) :
+  m_Normal{ inNormalizedNormal },
+  m_Dist{ glm::dot(m_Normal, point) }
+{
+
+}
+
 float MTG::Sphere::getVolume() const noexcept
 {
   return fourPiOverThree * m_Radius * m_Radius * m_Radius;
@@ -346,6 +353,31 @@ int MTG::cmpPointPlane(Point3D const& p0, Plane const& p1, float inEpsilon)
   if (tmp > inEpsilon)return 1;
   if (tmp < -inEpsilon)return -1;
   return 0;
+}
+
+MTG::EPSResult MTG::intersectionEdgePlaneSpecial(Ray const& r0, Plane const& p1, float& outTime)
+{
+  int PointPlaneResult{ cmpPointPlane(r0.m_Point, p1, FLT_EPSILON) };
+  if (PointPlaneResult == 0)
+  {
+    outTime = 0.0f;
+    return EPSResult::E_COPLANAR;    // ray start point is on the plane
+  }
+  float tmp{ glm::dot(r0.m_Direction, p1.m_Normal) };
+  if (std::signbit(tmp) ? (PointPlaneResult < 0) : (PointPlaneResult > 0))
+  { // if (oppositedirection ? outside half plane : inside half plane)
+    return static_cast<EPSResult>(PointPlaneResult);
+  }
+  // using FLT_EPSILON was too lenient, mostly parallel stuff still returned true
+  if (std::fabsf(tmp) < FLT_EPSILON)
+  { // parallel
+    return static_cast<EPSResult>(PointPlaneResult);
+  }
+  // control reach here means there is an intersection, but when.
+  //outTime = glm::dot(p1.m_Dist * p1.m_Normal - r0.m_Point, p1.m_Normal) / tmp;
+  outTime = (p1.m_Dist - glm::dot(r0.m_Point, p1.m_Normal)) / tmp;
+  if (outTime < 1.0f)PointPlaneResult *= 2;
+  return static_cast<EPSResult>(PointPlaneResult);
 }
 
 bool MTG::intersectionRayPlane(Ray const& r0, Plane const& p1, float& outTime)
