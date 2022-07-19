@@ -50,6 +50,19 @@ void vulkanModel::drawIndexed(VkCommandBuffer FCB)
   vkCmdDrawIndexed(FCB, m_IndexCount, 1, 0, 0, 0);
 }
 
+void vulkanModel::drawIndexedManual(VkCommandBuffer FCB, uint32_t iBegin, uint32_t iCount)
+{
+  if (iBegin >= m_IndexCount || iCount > m_IndexCount)
+  {
+    printWarning("Indices passed in greater than model's indices");
+    return;
+  }
+  VkDeviceSize offsets[]{ 0 };
+  vkCmdBindVertexBuffers(FCB, 0, 1, &m_Buffer_Vertex.m_Buffer, offsets);
+  vkCmdBindIndexBuffer(FCB, m_Buffer_Index.m_Buffer, 0, m_IndexType);
+  vkCmdDrawIndexed(FCB, iCount, 1, iBegin, 0, 0);
+}
+
 void vulkanModel::drawInit(VkCommandBuffer FCB)
 {
   m_pFnDraw = ((m_IndexType == VK_INDEX_TYPE_NONE_KHR || m_IndexType == VK_INDEX_TYPE_MAX_ENUM || m_IndexCount == 0) ? &vulkanModel::drawVerts : &vulkanModel::drawIndexed);

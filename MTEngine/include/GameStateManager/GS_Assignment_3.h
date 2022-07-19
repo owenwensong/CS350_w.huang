@@ -15,6 +15,7 @@
 
 #include <GameStateManager/GameStateBase.h>
 
+#include <variant>
 #include <Assignment/Camera.h>
 #include <Assignment/Geometry.h>
 #include <vulkanHelpers/vulkanModel.h>
@@ -122,31 +123,31 @@ namespace A3H // Assignment 3 Helper namespace
 
   };
 
-  struct TreeNode
+  struct OctTreeNode
   {
-    static constexpr std::array<TreeNode*, 8> s_pChildInit
-    {
-      nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr
-    };// make sure it initializes to nullptr fully all the time
 
-    glm::vec3 m_Center;   // center of this
-    float     m_HalfWidth;// half extents of this node
+    struct internalType
+    {
+      std::array<OctTreeNode*, 8> m_pChild
+      {
+        nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr
+      };// make sure it initializes to nullptr fully all the time
+    };
+
+    struct leafType
+    {
+      FV pGeometry;  // Geometry as a vector of faces
+    };
+
+    glm::vec3 m_Center{  };   // center of this
+    float     m_HalfWidth{  };// half extents of this node
 
     std::vector<Object::Proxy> m_Objects; // objects contained at this level
 
-    union nodeType
-    {
-      struct internalType
-      {
-        std::array<TreeNode*, 8> m_pChild;
-      } asInternal;
-      struct leafType
-      {
-        vulkanModel m_Mesh;     // so I can draw the geometry
-      } asLeaf;
-    } m_Data{ s_pChildInit };
+    std::variant<internalType, leafType> m_Data;// defaults to index 0, internal
 
-    bool m_bIsLeaf{ false };
+    bool isLeaf() const noexcept { return 1 == m_Data.index(); }
+
   };
 
 // *****************************************************************************
@@ -160,7 +161,7 @@ namespace A3H // Assignment 3 Helper namespace
 
   glm::mat4 getAABBMat(MTG::AABB const& inAABB) noexcept;
   glm::mat4 getBSMat(MTG::Sphere const& inBS) noexcept;
-  glm::mat4 getOctTreeAABBMat(TreeNode const* inNode) noexcept;
+  glm::mat4 getOctTreeAABBMat(OctTreeNode const* inNode) noexcept;
 
 // *****************************************************************************
 }
@@ -196,7 +197,7 @@ namespace MTU
     //size_t getModelsVRAM() const noexcept;
 
     void CreateOctTree();
-    void DestroyOctTree();
+    void DestroyOctTree(bool keepModel = false);
 
   private:
     windowsInput& inputs;
@@ -213,11 +214,15 @@ namespace MTU
     A3H::MA  m_Models;      // assignment models
     A3H::OV  m_Objects;     // objects
 
-    A3H::TreeNode* m_OctTree; // OctTree
+    A3H::OctTreeNode* m_OctTree;   // OctTree
+
+    vulkanModel m_OctTreeModel; // Model of OctTree
+    A3H::IV     m_OctTreeObjectIndexCounts; // Object index for drawing differently
 
     int m_Octree_TriPerCell;  // termination criteria for the octree
     static constexpr int s_OctTreeMinTriPerCell{ 300 };
-    static constexpr int s_OctTreeDefTriPerCell{ 30000 };
+    static constexpr int s_OctTreeDefTriPerCell{ 2048 };
+    static constexpr int s_OctTreeMaxTriPerCell{ 30000 };
 
     bool m_bEditMode;
     bool m_bDrawObj;
@@ -226,6 +231,7 @@ namespace MTU
 
     bool m_bDrawOctTreeBounds;
     bool m_bDrawOctTreeTris;
+    bool m_bKeepOctTreeModel;
 
   };
 }

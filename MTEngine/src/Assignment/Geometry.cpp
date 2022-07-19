@@ -163,7 +163,7 @@ namespace localHelper
 // 1.26694  | 20.0459 | 15.6448
 // 0.576925 | 15.6448 | 22.2767
 // confirmed good computed by hand.
-glm::mat3 MTG::computeCovarianceMatrix(glm::vec3 const* pBegin, size_t nElems)
+glm::mat3 MTG::computeCovarianceMatrix(glm::vec3 const* pBegin, size_t nElems, glm::vec3* outMean)
 {
   glm::vec3 const* pEnd{ pBegin + nElems };
   glm::mat3 retval{ glm::vec3{ 0.0f }, glm::vec3{ 0.0f }, glm::vec3{ 0.0f } };
@@ -193,6 +193,8 @@ glm::mat3 MTG::computeCovarianceMatrix(glm::vec3 const* pBegin, size_t nElems)
   retval[0][1] = retval[1][0];  // c21
   retval[0][2] = retval[2][0];  // c31
   retval[1][2] = retval[2][1];  // c32
+
+  if (nullptr != outMean)*outMean = mean;
 
   return retval;
 }

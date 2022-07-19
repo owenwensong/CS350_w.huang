@@ -28,6 +28,7 @@ struct vulkanModel
 
   void drawVerts(VkCommandBuffer FCB);  // draw by vertex buffer only
   void drawIndexed(VkCommandBuffer FCB);// draw by indexed vertices
+  void drawIndexedManual(VkCommandBuffer FCB, uint32_t iBegin, uint32_t iCount);
   void drawInit(VkCommandBuffer FCB);   // initialize which draw fn to use
   void draw(VkCommandBuffer FCB);       // the draw interface
   void (vulkanModel::* m_pFnDraw)(VkCommandBuffer) { &vulkanModel::drawInit };

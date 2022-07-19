@@ -38,7 +38,7 @@
 namespace MTG
 {
 
-  glm::mat3 computeCovarianceMatrix(glm::vec3 const* pBegin, size_t nElems);
+  glm::mat3 computeCovarianceMatrix(glm::vec3 const* pBegin, size_t nElems, glm::vec3* outMean = nullptr);
 
   void SymChur2(glm::mat3& a, glm::vec2& cs, int p, int q);
 
