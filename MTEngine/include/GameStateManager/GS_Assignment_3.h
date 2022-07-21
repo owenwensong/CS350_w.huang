@@ -112,7 +112,7 @@ namespace A3H // Assignment 3 Helper namespace
     glm::mat4 m_W2M;
 
     MTG::AABB   m_AABB;
-    MTG::Sphere m_BS_Pearson;
+    //MTG::Sphere m_BS_Pearson;
 
     enumAss3Models m_Model;
 
@@ -147,6 +147,26 @@ namespace A3H // Assignment 3 Helper namespace
     std::variant<internalType, leafType> m_Data;// defaults to index 0, internal
 
     bool isLeaf() const noexcept { return 1 == m_Data.index(); }
+
+  };
+
+  struct BSPNode
+  {
+
+    struct internalType
+    {
+      MTG::Plane              m_SplitPlane{  };
+      std::array<BSPNode*, 2> m_pChild{ nullptr, nullptr };
+    };
+
+    struct leafType
+    {
+      FV pGeometry;
+    };
+
+    std::variant<internalType, leafType> m_Data;
+
+    bool isLeaf() const noexcept { return 1 == m_Data.index(); };
 
   };
 
@@ -188,16 +208,17 @@ namespace MTU
   private:
 
     // get the number of vertices of all objects in the scene
-    //size_t getNumSceneVertices() const noexcept;
-
-    //size_t getObjectsRam() const noexcept;
-    //
+    size_t getNumSceneVertices() const noexcept;
+    
     //size_t getModelsRAM() const noexcept;
 
-    //size_t getModelsVRAM() const noexcept;
+    size_t getModelsVRAM() const noexcept;
 
     void CreateOctTree();
     void DestroyOctTree(bool keepModel = false);
+
+    void CreateBSPTree();
+    void DestroyBSPTree(bool keepModel = false);
 
   private:
     windowsInput& inputs;
@@ -214,24 +235,36 @@ namespace MTU
     A3H::MA  m_Models;      // assignment models
     A3H::OV  m_Objects;     // objects
 
-    A3H::OctTreeNode* m_OctTree;   // OctTree
+    A3H::OctTreeNode* m_OctTree;  // OctTree
+    A3H::BSPNode*     m_BSPTree;  // BSP
 
     vulkanModel m_OctTreeModel; // Model of OctTree
     A3H::IV     m_OctTreeObjectIndexCounts; // Object index for drawing differently
+
+    vulkanModel m_BSPTreeModel;
+    A3H::IV     m_BSPTreeObjectIndexCounts;
 
     int m_Octree_TriPerCell;  // termination criteria for the octree
     static constexpr int s_OctTreeMinTriPerCell{ 300 };
     static constexpr int s_OctTreeDefTriPerCell{ 2048 };
     static constexpr int s_OctTreeMaxTriPerCell{ 30000 };
 
+    int m_BSPTree_TriPerPart;
+    static constexpr int s_BSPTreeMinTriPerPart{ 300 };
+    static constexpr int s_BSPTreeDefTriPerPart{ 2048 };
+    static constexpr int s_BSPTreeMaxTriPerCell{ 30000 };
+
     bool m_bEditMode;
     bool m_bDrawObj;
     bool m_bDrawAABB;
-    bool m_bDrawBS_Pearson;
+    //bool m_bDrawBS_Pearson;
 
     bool m_bDrawOctTreeBounds;
     bool m_bDrawOctTreeTris;
     bool m_bKeepOctTreeModel;
+
+    bool m_bDrawBSPTreeTris;
+    bool m_bKeepBSPTreeModel;
 
   };
 }

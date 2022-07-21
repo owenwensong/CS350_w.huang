@@ -123,11 +123,11 @@ namespace A3H
   /// @param s0 sphere input with square radius to save some time
   /// @param p1 new extreme point of the sphere
   /// @return a point on s0's circumference in the direction of s0 center from p1
-  static glm::vec3 getOppositePoint(MTG::Sphere const& s0, glm::vec3 p1) noexcept
-  {
-    p1 = s0.m_Center - p1;  // p1 is now the vector from the point to the center
-    return s0.m_Center + std::sqrtf(s0.m_Radius / sqrLen(p1)) * p1; // own optimization, ask me for more info.
-  }
+  //static glm::vec3 getOppositePoint(MTG::Sphere const& s0, glm::vec3 p1) noexcept
+  //{
+  //  p1 = s0.m_Center - p1;  // p1 is now the vector from the point to the center
+  //  return s0.m_Center + std::sqrtf(s0.m_Radius / sqrLen(p1)) * p1; // own optimization, ask me for more info.
+  //}
 
   /// @brief  create a new sphere with radius data member being squared as this 
   ///         is not the final sphere. It will be used for further computation.
@@ -135,12 +135,12 @@ namespace A3H
   /// @param inA one of 2 opposing sides of a sphere (the opposite of inB)
   /// @param inB one of 2 opposing sides of a sphere (the opposite of inA)
   /// @return new bounding sphere with a squared radius component
-  static MTG::Sphere createNewSquaredSphere(glm::vec3 inA, glm::vec3 inB) noexcept
-  {
-    inA = 0.5f * (inA + inB); // inA now holds the center
-    inB -= inA;               // inB now holds the radius vector
-    return MTG::Sphere{ inA, sqrLen(inB) };
-  }
+  //static MTG::Sphere createNewSquaredSphere(glm::vec3 inA, glm::vec3 inB) noexcept
+  //{
+  //  inA = 0.5f * (inA + inB); // inA now holds the center
+  //  inB -= inA;               // inB now holds the radius vector
+  //  return MTG::Sphere{ inA, sqrLen(inB) };
+  //}
 
   // ***************************************************************************
   // *************************************************** SPLITTING POLYGONS ****
@@ -397,7 +397,7 @@ namespace A3H
     // Check condition (if it's not a leaf alr the children might have more geometry)
     {
       bool leafCheck{ std::all_of(std::get<0>(pNode->m_Data).m_pChild.begin(), std::get<0>(pNode->m_Data).m_pChild.end(), +[](OctTreeNode const* inPtr) { return nullptr == inPtr;  }) };
-      if (leafCheck && getNumTriangles(inPolys) < static_cast<size_t>(maxTriPerCell))
+      if (leafCheck && getNumTriangles(inPolys) <= static_cast<size_t>(maxTriPerCell))
       {
         // node type converted to leaf and contains geometry
         pNode->m_Data = OctTreeNode::leafType{ std::move(inPolys) };
@@ -559,9 +559,208 @@ namespace A3H
   }
 
   // ***************************************************************************
+  // ****************************************************************** BSP ****
+
+  void countPolygons(FV const& inPolys, MTG::Plane const& inPlane, size_t& outFront, size_t& outBack)
+  {
+    outFront = 0;
+    outBack = 0;
+    for (auto const& x : inPolys)
+    {
+      switch (MTG::ClassifyPolygonToPlane(inPlane, x.data(), x.size()))
+      {
+      case MTG::PolyPlaneResult::POLYGON_STRADDLING:
+        ++outFront;
+        ++outBack;
+        break;
+      default:
+      case MTG::PolyPlaneResult::POLYGON_COPLANAR:
+      case MTG::PolyPlaneResult::POLYGON_IN_FRONT:
+        ++outFront;
+        break;
+      case MTG::PolyPlaneResult::POLYGON_IN_BACK:
+        ++outBack;
+        break;
+      }
+    }
+  }
+
+  bool chooseSplitPlaneAuto(MTG::Plane& outPlane, FV const& inPolys)
+  {
+    const size_t maxPolyDiff{ std::max<size_t>(inPolys.size() / 10, 1) };
+    const size_t maxPolySide{ inPolys.size() + maxPolyDiff };
+    for (auto const& x : inPolys)
+    {
+      MTG::Plane splitPlane{ glm::cross(x[1] - x[0], x[2] - x[0]), x[0]};
+      if (isnan(splitPlane.m_Normal.x))continue;// only check one cus it's normalization that does it
+      size_t frontPolyEstimate, backPolyEstimate;
+      countPolygons(inPolys, splitPlane, frontPolyEstimate, backPolyEstimate);
+      size_t polyDiff{ frontPolyEstimate > backPolyEstimate ? frontPolyEstimate - backPolyEstimate : backPolyEstimate - frontPolyEstimate };
+      if (polyDiff <= maxPolyDiff)
+      {
+        if (frontPolyEstimate + backPolyEstimate >= maxPolySide)continue;
+        outPlane = splitPlane;
+        return true;
+      }
+    }
+    return false;// failed to find split plane
+  }
+
+  void partitionBSP(BSPNode* pNode, FV&& inPolys, FV& frontPolys, FV& backPolys)
+  {
+    MTG::Plane const& splitPlane{ std::get<0>(pNode->m_Data).m_SplitPlane };
+    for (auto& x : inPolys)
+    {
+      VV frontPoly, backPoly;
+      splitPoly(x, splitPlane, frontPoly, backPoly);
+      if (0 != frontPoly.size())frontPolys.emplace_back(std::move(frontPoly));
+      if (0 != backPoly.size())backPolys.emplace_back(std::move(backPoly));
+    }
+  }
+
+  template <typename ChoosePlaneFnType>
+  void subDivideBSPGeometry(BSPNode* pNode, FV&& inPolys, size_t maxTriPerPart, ChoosePlaneFnType choosePlaneFn)
+  {
+    if (getNumTriangles(inPolys) <= maxTriPerPart || false == choosePlaneFn(std::get<0>(pNode->m_Data).m_SplitPlane, inPolys))
+    {
+      pNode->m_Data = BSPNode::leafType{ std::move(inPolys) };
+      return;
+    }
+
+    std::array<FV, 2> splitGeometry;
+    partitionBSP(pNode, std::move(inPolys), splitGeometry[0], splitGeometry[1]);
+    for (size_t i{ 0 }; i < 2; ++i)
+    {
+      if (0 != splitGeometry[i].size())
+      {
+        std::get<0>(pNode->m_Data).m_pChild[i] = new BSPNode;
+        subDivideBSPGeometry(std::get<0>(pNode->m_Data).m_pChild[i], std::move(splitGeometry[i]), maxTriPerPart, choosePlaneFn);
+      }
+    }
+
+  }
+
+  template <typename ChoosePlaneFnType>
+  BSPNode* buildBSP(OV const& objects, MFA const& faces, int maxTriPerPart, ChoosePlaneFnType choosePlaneFn)
+  {
+    BSPNode* pRoot{ new BSPNode };
+
+    FV allFaces;
+    for (auto x : objects)
+    {
+      size_t faceIndex{ static_cast<size_t>(x.m_Model) };
+      glm::mat3 linearxform{ x.m_M2W };
+      glm::vec3 translate{ x.m_M2W[3] };
+      allFaces.reserve(allFaces.size() + faces[faceIndex].size());
+      std::transform
+      (
+        faces[faceIndex].begin(),
+        faces[faceIndex].end(),
+        std::back_inserter(allFaces),
+        [&](VV const& inFace)
+        {
+          VV retval{ inFace };
+          assert(retval.size() >= 3);
+          for (glm::vec3& vertex : retval)
+          {
+            vertex = linearxform * vertex + translate;
+          }
+          return retval;
+        }
+      );
+    }
+    subDivideBSPGeometry(pRoot, std::move(allFaces), static_cast<size_t>(maxTriPerPart), choosePlaneFn);
+
+    return pRoot;
+  }
+
+  void destroyBSPTree(BSPNode*pNode)
+  {
+    if (nullptr == pNode)return;
+    if (false == pNode->isLeaf())
+    {
+      for (BSPNode* pChild : std::get<0>(pNode->m_Data).m_pChild)
+      {
+        destroyBSPTree(pChild);
+      }
+    }
+    delete pNode;
+  }
+
+  template <typename funcType>
+  void depthFirst(BSPNode* pTree, funcType pFn, size_t currDepth = 0)
+  {
+    if (nullptr == pTree)return;
+
+    pFn(pTree, currDepth);
+
+    if (true == pTree->isLeaf())return;
+
+    for (auto& x : std::get<0>(pTree->m_Data).m_pChild)
+    {
+      if (nullptr == x)continue;
+      depthFirst(x, pFn, currDepth + 1);
+    }
+  }
+
+  vulkanModel loadFromBSPTree(BSPNode* pNode, std::vector<uint32_t>& outObjIndices)
+  {
+    if (nullptr == pNode)return vulkanModel{  };
+    windowHandler* pWH{ windowHandler::getPInstance() };
+    assert(pWH != nullptr);// debug only, flow should be pretty standard.
+
+    vulkanModel retval;
+    VV positions;
+    IV indices;
+    outObjIndices.clear();
+    depthFirst
+    (
+      pNode,
+      [&](BSPNode* pLambdaNode, size_t /*currDepth*/)
+      {
+        if (false == pLambdaNode->isLeaf())return;
+        size_t before{ indices.size() };
+        triangulatePolygons(std::get<1>(pLambdaNode->m_Data).pGeometry, positions, indices);
+        if (size_t after{ indices.size() }; after > before)
+        {
+          outObjIndices.emplace_back(static_cast<uint32_t>(after - before));
+        }
+      }
+    );
+
+    retval.m_VertexCount = static_cast<uint32_t>(positions.size());
+    retval.m_IndexCount = static_cast<uint32_t>(indices.size());
+    retval.m_IndexType = VK_INDEX_TYPE_UINT32;
+
+    // set up vertex buffer
+    if (false == pWH->createBuffer(retval.m_Buffer_Vertex, vulkanBuffer::Setup{ vulkanBuffer::s_BufferUsage_Vertex, vulkanBuffer::s_MemPropFlag_Vertex, retval.m_VertexCount, sizeof(decltype(positions)::value_type) }))
+    {
+      printWarning("failed to create mesh vertex buffer");
+      retval.destroyModel();
+      return vulkanModel{ /* return default struct if fail */ };
+    }
+
+    // write to vertex buffer
+    pWH->writeToBuffer(retval.m_Buffer_Vertex, { positions.data() }, { static_cast<VkDeviceSize>(positions.size() * sizeof(decltype(positions)::value_type)) });
+
+    // set up index buffer
+    if (false == pWH->createBuffer(retval.m_Buffer_Index, vulkanBuffer::Setup{ vulkanBuffer::s_BufferUsage_Index, vulkanBuffer::s_MemPropFlag_Index, retval.m_IndexCount, sizeof(decltype(indices)::value_type) }))
+    {
+      printWarning("failed to create mesh index buffer");
+      retval.destroyModel();
+      return vulkanModel{ /* return default struct if fail */ };
+    }
+
+    // write to index buffer
+    pWH->writeToBuffer(retval.m_Buffer_Index, { indices.data() }, { static_cast<VkDeviceSize>(indices.size() * sizeof(decltype(indices)::value_type)) });
+
+    return retval;
+  }
+
+  // ***************************************************************************
 
   static const glm::vec3 AABB_WireColor{ 0.0625f, 1.0f, 0.0625f };
-  static const glm::vec3 BS_Pearson_WireColor{ 0.0625f, 0.0625f, 1.0f };
+  //static const glm::vec3 BS_Pearson_WireColor{ 0.0625f, 0.0625f, 1.0f };
   static const std::array<glm::vec3, 13> WireColors
   {
     glm::vec3{ 1.0f, 0.0f, 0.0f },
@@ -595,14 +794,22 @@ MTU::GS_Assignment_3::GS_Assignment_3(GameStateManager& rGSM) :
   m_Models{  },
   m_Objects{  },
   m_OctTree{ nullptr },
+  m_BSPTree{ nullptr },
   m_OctTreeModel{  },
+  m_OctTreeObjectIndexCounts{  },
+  m_BSPTreeModel{  },
+  m_BSPTreeObjectIndexCounts{  },
+  m_Octree_TriPerCell{  },
+  m_BSPTree_TriPerPart{  },
   m_bEditMode{  },
   m_bDrawObj{  },
   m_bDrawAABB{  },
-  m_bDrawBS_Pearson{  },
+  //m_bDrawBS_Pearson{  },
   m_bDrawOctTreeBounds{  },
   m_bDrawOctTreeTris{  },
-  m_bKeepOctTreeModel{  }
+  m_bKeepOctTreeModel{  },
+  m_bDrawBSPTreeTris{  },
+  m_bKeepBSPTreeModel{  }
 {
   GS_PRINT_FUNCSIG();
 
@@ -794,19 +1001,28 @@ void MTU::GS_Assignment_3::Init()
 
 #if defined(DEBUG) || defined(_DEBUG)
   m_Octree_TriPerCell = s_OctTreeMaxTriPerCell;
+  // CreateOctTree();
+  m_BSPTree_TriPerPart = s_OctTreeMaxTriPerCell;
+  //CreateBSPTree();
 #else
   m_Octree_TriPerCell = s_OctTreeDefTriPerCell;
-#endif
   CreateOctTree();
+
+  m_BSPTree_TriPerPart = s_BSPTreeDefTriPerPart;
+  CreateBSPTree();
+#endif
 
   m_bEditMode = false;
   m_bDrawObj = false;
   m_bDrawAABB = false;
-  m_bDrawBS_Pearson = false;
+  //m_bDrawBS_Pearson = false;
 
   m_bDrawOctTreeBounds = false;
   m_bDrawOctTreeTris = true;
   m_bKeepOctTreeModel = true;
+
+  m_bDrawBSPTreeTris = false;
+  m_bKeepBSPTreeModel = true;
 
   // ***************************************************************************
 
@@ -843,7 +1059,7 @@ void MTU::GS_Assignment_3::Update(uint64_t dt)
   {
     ImGui::TextUnformatted("Hover tooltips:");
     //IMGUI_SAMELINE_TOOLTIPV_HELPER("These (?) tooltips contain more information to use the program as intended\n\nExtra info:\n\nVertices: %d (total number of vertices in the scene)\nObjects RAM: %d B (Memory used to store per object pos, rot, scale, etc)\nModels RAM:  %d B (Memory used to store positions to calculate BVs)\nModels VRAM: %d B (GPU Memory used to store model data)", static_cast<int>(getNumSceneVertices()), static_cast<int>(getObjectsRam()), static_cast<int>(getModelsRAM()), static_cast<int>(getModelsVRAM()));
-    IMGUI_SAMELINE_TOOLTIP_HELPER("These (?) tooltips contain more information to use the program as intended\n");
+    IMGUI_SAMELINE_TOOLTIPV_HELPER("These (?) tooltips contain more information to use the program as intended\n\nExtra info:\n\nVertices: %d (total number of vertices in the scene being drawn)\nVRAM usage: %d B", static_cast<int>(getNumSceneVertices()), static_cast<int>(getModelsVRAM()));
     ImGui::TextUnformatted("Window controls");
     IMGUI_SAMELINE_TOOLTIPV_HELPER("F11: Fullscreen\n\n%s", "F1: Go to Assignment 1 state\nF2: Go to Assignment 2 state\nF3: Restart Assignment 3 state");
     ImGui::TextUnformatted("Camera controls");
@@ -878,19 +1094,26 @@ void MTU::GS_Assignment_3::Update(uint64_t dt)
     ImGui::TextUnformatted("Bounding Volumes");
     IMGUI_COLOR_CHECKBOX_HELPER("draw solid objects", m_bDrawObj, m_LightColor);
     IMGUI_COLOR_CHECKBOX_HELPER("draw AABB", m_bDrawAABB, A3H::AABB_WireColor);
-    IMGUI_COLOR_CHECKBOX_HELPER("draw BS Pearson (PCA)", m_bDrawBS_Pearson, A3H::BS_Pearson_WireColor);
+    //IMGUI_COLOR_CHECKBOX_HELPER("draw BS Pearson (PCA)", m_bDrawBS_Pearson, A3H::BS_Pearson_WireColor);
 
     ImGui::Separator();
     ImGui::TextUnformatted("Spatial Partitioning");
     IMGUI_SAMELINE_TOOLTIP_HELPER("Due to the use of recursion, the default triangles per cell is increased.\nLower it at risk of stack overflow.\n\nThe current minimum of 300 has been tested to work on an AMD Ryzen 7 5800HS");
     ImGui::SliderInt("Tri per cell (OctTree)", &m_Octree_TriPerCell, s_OctTreeMinTriPerCell, s_OctTreeMaxTriPerCell);
+    ImGui::SliderInt("Tri per part (BSPTree)", &m_BSPTree_TriPerPart, s_BSPTreeMinTriPerPart, s_BSPTreeMaxTriPerCell);
     if (ImGui::Button("Recreate OctTree"))CreateOctTree();
     ImGui::SameLine();
     if (ImGui::Button("Destroy OctTree"))DestroyOctTree(m_bKeepOctTreeModel);
     ImGui::SameLine();
     ImGui::Checkbox("Keep model (OctTree)", &m_bKeepOctTreeModel);
+    if (ImGui::Button("Recreate BSPTree"))CreateBSPTree();
+    ImGui::SameLine();
+    if (ImGui::Button("Destroy BSPTree"))DestroyBSPTree(m_bKeepBSPTreeModel);
+    ImGui::SameLine();
+    ImGui::Checkbox("Keep model (BSPTree)", &m_bKeepBSPTreeModel);
     ImGui::Checkbox("draw OctTree Bounds", &m_bDrawOctTreeBounds);
     ImGui::Checkbox("draw OctTree Triangles", &m_bDrawOctTreeTris);
+    ImGui::Checkbox("draw BSPTree Triangles", &m_bDrawBSPTreeTris);
 
     // SCENE OBJECTS EDITOR (DISABLED FOR ASSIGNMENT 3)
     ImGui::Separator();
@@ -898,7 +1121,7 @@ void MTU::GS_Assignment_3::Update(uint64_t dt)
     //IMGUI_SAMELINE_TOOLTIP_HELPER("You can edit the scene here.\nEdits are on a per object level.\nPlease recompute BV and BVH after making changes.");
     ImGui::SameLine();
     ImGui::Checkbox("Override Edit Lock", &m_bEditMode);
-    IMGUI_SAMELINE_TOOLTIP_HELPER("WARNING: NOT OFFICIALLY SUPPORTED ON ASSIGNMENT 3");
+    IMGUI_SAMELINE_TOOLTIP_HELPER("changes reflected on solid object.\nRecreate OctTree to see new OctTree.\nRecreate BSPTree to see new BSPTree");
     if (false == m_bEditMode)ImGui::BeginDisabled();
     if (ImGui::BeginChild("Objects", ImVec2{ 0.0f, 7.5f * ImGui::GetFrameHeightWithSpacing() }, true))
     {
@@ -1056,18 +1279,18 @@ void MTU::GS_Assignment_3::Draw()
     }
   }
 
-  if (true == m_bDrawBS_Pearson)
-  {
-    m_Pipelines[A3H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &A3H::BS_Pearson_WireColor);
-    for (auto& x : m_Objects)
-    {
-      glm::mat4 xform{ m_Cam.m_W2V * A3H::getBSMat(x.m_BS_Pearson) };
+  //if (true == m_bDrawBS_Pearson)
+  //{
+  //  m_Pipelines[A3H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &A3H::BS_Pearson_WireColor);
+  //  for (auto& x : m_Objects)
+  //  {
+  //    glm::mat4 xform{ m_Cam.m_W2V * A3H::getBSMat(x.m_BS_Pearson) };
 
-      m_Pipelines[A3H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
+  //    m_Pipelines[A3H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &xform);
 
-      m_DebugModels[A3H::E_DEBUGMODEL_SPHERE].draw(FCB);
-    }
-  }
+  //    m_DebugModels[A3H::E_DEBUGMODEL_SPHERE].draw(FCB);
+  //  }
+  //}
 
   if (true == m_bDrawOctTreeTris)
   {
@@ -1100,6 +1323,22 @@ void MTU::GS_Assignment_3::Draw()
     );
   }
 
+  if (true == m_bDrawBSPTreeTris)
+  {
+    size_t colIdx{ 0 };
+    uint32_t iBegin{ 0 };
+    for (uint32_t numIndices : m_BSPTreeObjectIndexCounts)
+    {
+      m_Pipelines[A3H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(glm::vec3), &A3H::WireColors[colIdx]);
+      m_Pipelines[A3H::E_PIPELINE_WIREFRAME].pushConstant(FCB, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &m_Cam.m_W2V);
+
+      m_BSPTreeModel.drawIndexedManual(FCB, iBegin, numIndices);
+      iBegin += numIndices;
+
+      colIdx = (colIdx + 1) % A3H::WireColors.size();
+    }
+  }
+
 }
 
 void MTU::GS_Assignment_3::Free()
@@ -1109,6 +1348,7 @@ void MTU::GS_Assignment_3::Free()
   m_Objects.clear();// double call, consider removing one?
   
   DestroyOctTree(false);
+  DestroyBSPTree(false);
 
 }
 
@@ -1184,53 +1424,57 @@ void A3H::Object::computeBoundingVolumes(MVA const& inModelVertexArray)
   m_AABB.m_Max.z = cardinalMax[2].z;
 
   // Principal Component Analysis
-  m_BS_Pearson = MTG::createEigenSquaredRadiusSphere(vertices.data(), vertices.size());
-  for (auto const& x : vertices)
-  {
-    if (sqrDist(x, m_BS_Pearson.m_Center) > m_BS_Pearson.m_Radius)
-    {
-      m_BS_Pearson = createNewSquaredSphere(getOppositePoint(m_BS_Pearson, x), x);
-    }
-  }
-  m_BS_Pearson.m_Radius = std::sqrtf(m_BS_Pearson.m_Radius);
+  //m_BS_Pearson = MTG::createEigenSquaredRadiusSphere(vertices.data(), vertices.size());
+  //for (auto const& x : vertices)
+  //{
+  //  if (sqrDist(x, m_BS_Pearson.m_Center) > m_BS_Pearson.m_Radius)
+  //  {
+  //    m_BS_Pearson = createNewSquaredSphere(getOppositePoint(m_BS_Pearson, x), x);
+  //  }
+  //}
+  //m_BS_Pearson.m_Radius = std::sqrtf(m_BS_Pearson.m_Radius);
 }
 
-//size_t MTU::GS_Assignment_3::getNumSceneVertices() const noexcept
-//{
-//  size_t retval{ 0 };
-//  for (auto const& x : m_Objects)retval += m_Vertices[x.m_Model].size();
-//  return retval;
-//}
-//
-//size_t MTU::GS_Assignment_3::getObjectsRam() const noexcept
-//{
-//  return m_Objects.capacity() * sizeof(m_Objects);
-//}
-//
+size_t MTU::GS_Assignment_3::getNumSceneVertices() const noexcept
+{
+  size_t retval{ 0 };
+  if (m_bDrawObj)for (auto const& x : m_Objects)retval += m_Vertices[x.m_Model].size();
+  if (m_bDrawAABB)retval += m_Objects.size() * m_DebugModels[A3H::E_DEBUGMODEL_CUBE].m_VertexCount;
+  if (m_bDrawOctTreeTris)retval += m_OctTreeModel.m_VertexCount;
+  if (m_bDrawBSPTreeTris)retval += m_BSPTreeModel.m_VertexCount;
+  if (m_bDrawOctTreeBounds)retval += m_OctTreeObjectIndexCounts.size() * m_DebugModels[A3H::E_DEBUGMODEL_CUBE].m_VertexCount;
+  return retval;
+}
+
 //size_t MTU::GS_Assignment_3::getModelsRAM() const noexcept
 //{
 //  size_t retval{ 0 };
 //  for (auto const& x : m_Vertices)retval += x.size() * sizeof(decltype(m_Vertices)::value_type::value_type);
 //  return retval;
 //}
-//
-//size_t MTU::GS_Assignment_3::getModelsVRAM() const noexcept
-//{
-//  size_t retval{ 0 };
-//  for (auto const& x : m_Models)
-//  {
-//    retval +=
-//      (
-//        static_cast<size_t>(x.m_Buffer_Vertex.m_Settings.m_Count) * static_cast<size_t>(x.m_Buffer_Vertex.m_Settings.m_ElemSize) +
-//        static_cast<size_t>(x.m_Buffer_Index.m_Settings.m_Count) * static_cast<size_t>(x.m_Buffer_Index.m_Settings.m_ElemSize)
-//        );
-//  }
-//  return retval;
-//}
+
+size_t MTU::GS_Assignment_3::getModelsVRAM() const noexcept
+{
+  size_t retval{ 0 };
+  for (auto const& x : m_Models)
+  {
+    retval +=
+      (
+        static_cast<size_t>(x.m_Buffer_Vertex.m_Settings.m_Count) * static_cast<size_t>(x.m_Buffer_Vertex.m_Settings.m_ElemSize) +
+        static_cast<size_t>(x.m_Buffer_Index.m_Settings.m_Count) * static_cast<size_t>(x.m_Buffer_Index.m_Settings.m_ElemSize)
+      );
+  }
+  retval += static_cast<size_t>(m_OctTreeModel.m_Buffer_Vertex.m_Settings.m_Count) * static_cast<size_t>(m_OctTreeModel.m_Buffer_Vertex.m_Settings.m_ElemSize) + static_cast<size_t>(m_OctTreeModel.m_Buffer_Index.m_Settings.m_Count) * static_cast<size_t>(m_OctTreeModel.m_Buffer_Index.m_Settings.m_ElemSize);
+  retval += static_cast<size_t>(m_BSPTreeModel.m_Buffer_Vertex.m_Settings.m_Count) * static_cast<size_t>(m_BSPTreeModel.m_Buffer_Vertex.m_Settings.m_ElemSize) + static_cast<size_t>(m_BSPTreeModel.m_Buffer_Index.m_Settings.m_Count) * static_cast<size_t>(m_BSPTreeModel.m_Buffer_Index.m_Settings.m_ElemSize);
+
+  return retval;
+}
 
 void MTU::GS_Assignment_3::CreateOctTree()
 {
   DestroyOctTree(false);
+
+  std::cout << "Starting work: Create OctTree" << std::endl;
 
   bool shouldStopTaskWorking{ false };
   MTU::ThreadTask isLoadingTask{ MTU::taskWorking, &shouldStopTaskWorking };
@@ -1261,6 +1505,42 @@ void MTU::GS_Assignment_3::DestroyOctTree(bool keepModel)
   m_OctTreeModel.destroyModel();
   m_OctTreeModel = vulkanModel{  };
   m_OctTreeObjectIndexCounts.clear();
+}
+
+void MTU::GS_Assignment_3::CreateBSPTree()
+{
+  DestroyBSPTree(false);
+
+  std::cout << "Starting work: Create BSPTree" << std::endl;
+
+  bool shouldStopTaskWorking{ false };
+  MTU::ThreadTask isLoadingTask{ MTU::taskWorking, &shouldStopTaskWorking };
+
+  // Split geometry
+  m_BSPTree = A3H::buildBSP(m_Objects, m_Faces, m_BSPTree_TriPerPart, A3H::chooseSplitPlaneAuto);
+
+  // Join geometry (retriangulate with different colors)
+  m_BSPTreeModel = A3H::loadFromBSPTree(m_BSPTree, m_BSPTreeObjectIndexCounts);
+
+  shouldStopTaskWorking = true;
+  for (MTU::Timer lazyTimer{ MTU::Timer::getCurrentTP() }; false == isLoadingTask.isDone(); lazyTimer.stop())
+  { // Error if 1s goes by after the loading finishes but thread doesn't end
+    if (lazyTimer.getElapsedCount() / MTU::Timer::clockFrequency)
+    {
+      printf_s("Something has gone wrong! Attempting to continue...\n");
+      break;
+    }
+  }
+}
+
+void MTU::GS_Assignment_3::DestroyBSPTree(bool keepModel)
+{
+  A3H::destroyBSPTree(m_BSPTree);
+  m_BSPTree = nullptr;
+  if (true == keepModel)return;
+  m_BSPTreeModel.destroyModel();
+  m_BSPTreeModel = vulkanModel{  };
+  m_BSPTreeObjectIndexCounts.clear();
 }
 
 // *****************************************************************************

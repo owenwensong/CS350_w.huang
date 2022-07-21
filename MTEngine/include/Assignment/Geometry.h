@@ -193,6 +193,16 @@ namespace MTG
   int intersectionPlaneAABB(Plane const&, AABB const&);
   int intersectionPlaneSphere(Plane const&, Sphere const&);
 
+  enum class PolyPlaneResult
+  {
+    POLYGON_STRADDLING,
+    POLYGON_COPLANAR,
+    POLYGON_IN_FRONT,
+    POLYGON_IN_BACK
+  };
+
+  PolyPlaneResult ClassifyPolygonToPlane(MTG::Plane const& inPlane, glm::vec3 const* pBegin, size_t nElems);
+
   MTG::Sphere createEigenSquaredRadiusSphere(glm::vec3 const* pBegin, size_t nElems);
 
 }

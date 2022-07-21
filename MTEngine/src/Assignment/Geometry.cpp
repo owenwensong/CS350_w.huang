@@ -524,3 +524,26 @@ int MTG::intersectionPlaneSphere(Plane const& p0, Sphere const& s1)
   float dist{ glm::dot(s1.m_Center, p0.m_Normal) - p0.m_Dist };
   return std::fabsf(dist) <= s1.m_Radius ? 0 : (std::signbit(dist) ? -1 : 1);
 }
+
+int ClassifyPointPlane(glm::vec3 const& inPoint, MTG::Plane const& inPlane)
+{
+  float signedDistance{ glm::dot(inPoint, inPlane.m_Normal) - inPlane.m_Dist };
+  if (std::fabsf(signedDistance) < FLT_EPSILON)return 0;
+  return std::signbit(signedDistance) ? -1 : 1;
+}
+
+MTG::PolyPlaneResult MTG::ClassifyPolygonToPlane(MTG::Plane const& inPlane, glm::vec3 const* pBegin, size_t nElems)
+{
+  const int p0Result{ ClassifyPointPlane(pBegin[0], inPlane) };
+  for (size_t i{ 1 }; i < nElems; ++i)
+  {
+    if (p0Result != ClassifyPointPlane(pBegin[i], inPlane))return PolyPlaneResult::POLYGON_STRADDLING;
+  }
+  switch (p0Result)
+  {
+  case 0: return PolyPlaneResult::POLYGON_STRADDLING;
+  default:
+  case 1: return PolyPlaneResult::POLYGON_IN_FRONT;
+  case -1: return PolyPlaneResult::POLYGON_IN_BACK;
+  }
+}
