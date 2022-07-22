@@ -24,6 +24,8 @@
 #include <GameStateManager/GS_Assignment_3.h>
 #include <glm/gtc/quaternion.hpp>
 
+#include <fstream>
+
 namespace A3H
 {
 
@@ -758,6 +760,156 @@ namespace A3H
   }
 
   // ***************************************************************************
+  // ******************************************************** Serialization ****
+
+  // basic validation
+  static const uint32_t proprietaryHeader[]
+  {
+    69,
+    420,
+    6969,
+    69420
+  };
+
+  template <typename TreeType>
+  void getTreeModelData(TreeType* pNode, VV& outPositions, IV& outIndices, std::vector<uint32_t>& outObjIndices)
+  {
+    outPositions.clear();
+    outIndices.clear();
+    outObjIndices.clear();
+    depthFirst
+    (
+      pNode,
+      [&](TreeType* pLambdaNode, size_t /*currDepth*/)
+      {
+        if (false == pLambdaNode->isLeaf())return;
+        size_t before{ outIndices.size() };
+        triangulatePolygons(std::get<1>(pLambdaNode->m_Data).pGeometry, outPositions, outIndices);
+        if (size_t after{ outIndices.size() }; after > before)
+        {
+          outObjIndices.emplace_back(static_cast<uint32_t>(after - before));
+        }
+      }
+    );
+  }
+
+  // for convenience and speed in final run, only model and indices are saved
+  template <typename TreeType>
+  bool saveTreeModelToFile(TreeType* pNode, std::filesystem::path outPath, int maxTriSetting)
+  {
+    std::ofstream ofs{ outPath, std::ios_base::binary };
+    if (false == ofs.is_open())return false;
+
+    VV positions;
+    IV indices;
+    std::vector<uint32_t> objIndices;
+    getTreeModelData<TreeType>(pNode, positions, indices, objIndices);
+
+    uint32_t posSize{ static_cast<uint32_t>(positions.size()) };
+    uint32_t iSize{ static_cast<uint32_t>(indices.size()) };
+    uint32_t oSize{ static_cast<uint32_t>(objIndices.size()) };
+
+    if (0 == posSize || 0 == iSize || 0 == oSize)return false;
+
+    // write first header, number of positions, array of vectors
+    ofs.write(reinterpret_cast<const char*>(proprietaryHeader + 0), sizeof(uint32_t));
+    ofs.write(reinterpret_cast<const char*>(&posSize), sizeof(uint32_t));
+    ofs.write(reinterpret_cast<const char*>(positions.data()), posSize * sizeof(decltype(positions)::value_type));
+
+    // write second header, number of indices, array of indices
+    ofs.write(reinterpret_cast<const char*>(proprietaryHeader + 1), sizeof(uint32_t));
+    ofs.write(reinterpret_cast<const char*>(&iSize), sizeof(uint32_t));
+    ofs.write(reinterpret_cast<const char*>(indices.data()), iSize * sizeof(decltype(indices)::value_type));
+
+    // write third header, number of obj indices, array of obj indices
+    ofs.write(reinterpret_cast<const char*>(proprietaryHeader + 2), sizeof(uint32_t));
+    ofs.write(reinterpret_cast<const char*>(&oSize), sizeof(uint32_t));
+    ofs.write(reinterpret_cast<const char*>(objIndices.data()), oSize * sizeof(decltype(objIndices)::value_type));
+
+    // write fourth header, tri per cell/part
+    ofs.write(reinterpret_cast<const char*>(proprietaryHeader + 3), sizeof(uint32_t));
+    ofs.write(reinterpret_cast<const char*>(&maxTriSetting), sizeof(maxTriSetting));
+
+    return true;
+  }
+
+  bool loadTreeModelFromFile(vulkanModel& outModel, std::vector<uint32_t>& outObjIndices, std::filesystem::path inPath, int& outMaxTriSetting)
+  {
+    windowHandler* pWH{ windowHandler::getPInstance() };
+    assert(pWH != nullptr);// debug only, flow should be pretty standard.
+
+    std::ifstream ifs{ inPath, std::ios_base::binary };
+    if (false == ifs.is_open())return false;
+
+    VV positions;
+    IV indices;
+    std::vector<uint32_t> objIndices;
+
+    uint32_t headerCheck{ 0 }, pSize{ 0 }, iSize{ 0 }, oSize{ 0 };
+
+    // read positions
+    ifs.read(reinterpret_cast<char*>(&headerCheck), sizeof(uint32_t));
+    if (headerCheck != proprietaryHeader[0])return false;
+    ifs.read(reinterpret_cast<char*>(&pSize), sizeof(uint32_t));
+    positions.resize(pSize);
+    ifs.read(reinterpret_cast<char*>(positions.data()), pSize * sizeof(decltype(positions)::value_type));
+
+    // read indices
+    ifs.read(reinterpret_cast<char*>(&headerCheck), sizeof(uint32_t));
+    if (headerCheck != proprietaryHeader[1])return false;
+    ifs.read(reinterpret_cast<char*>(&iSize), sizeof(uint32_t));
+    indices.resize(iSize);
+    ifs.read(reinterpret_cast<char*>(indices.data()), iSize * sizeof(decltype(indices)::value_type));
+
+    // read objIndices
+    ifs.read(reinterpret_cast<char*>(&headerCheck), sizeof(uint32_t));
+    if (headerCheck != proprietaryHeader[2])return false;
+    ifs.read(reinterpret_cast<char*>(&oSize), sizeof(uint32_t));
+    objIndices.resize(oSize);
+    ifs.read(reinterpret_cast<char*>(objIndices.data()), oSize * sizeof(decltype(objIndices)::value_type));
+
+    // read maxTriSetting
+    ifs.read(reinterpret_cast<char*>(&headerCheck), sizeof(uint32_t));
+    if (headerCheck != proprietaryHeader[3])return false;
+    ifs.read(reinterpret_cast<char*>(&outMaxTriSetting), sizeof(outMaxTriSetting));
+
+    // Reading complete, start loading model
+    ifs.close();
+
+    outModel.m_VertexCount = static_cast<uint32_t>(positions.size());
+    outModel.m_IndexCount = static_cast<uint32_t>(indices.size());
+    outModel.m_IndexType = VK_INDEX_TYPE_UINT32;
+
+    // set up vertex buffer
+    if (false == pWH->createBuffer(outModel.m_Buffer_Vertex, vulkanBuffer::Setup{ vulkanBuffer::s_BufferUsage_Vertex, vulkanBuffer::s_MemPropFlag_Vertex, outModel.m_VertexCount, sizeof(decltype(positions)::value_type) }))
+    {
+      printWarning("failed to create mesh vertex buffer");
+      outModel.destroyModel();
+      false;
+    }
+
+    // write to vertex buffer
+    pWH->writeToBuffer(outModel.m_Buffer_Vertex, { positions.data() }, { static_cast<VkDeviceSize>(positions.size() * sizeof(decltype(positions)::value_type)) });
+
+    // set up index buffer
+    if (false == pWH->createBuffer(outModel.m_Buffer_Index, vulkanBuffer::Setup{ vulkanBuffer::s_BufferUsage_Index, vulkanBuffer::s_MemPropFlag_Index, outModel.m_IndexCount, sizeof(decltype(indices)::value_type) }))
+    {
+      printWarning("failed to create mesh index buffer");
+      outModel.destroyModel();
+      return false;
+    }
+
+    // write to index buffer
+    pWH->writeToBuffer(outModel.m_Buffer_Index, { indices.data() }, { static_cast<VkDeviceSize>(indices.size() * sizeof(decltype(indices)::value_type)) });
+
+    // all good, move objIndices
+    outObjIndices = std::move(objIndices);
+
+    return true;
+
+  }
+
+  // ***************************************************************************
 
   static const glm::vec3 AABB_WireColor{ 0.0625f, 1.0f, 0.0625f };
   //static const glm::vec3 BS_Pearson_WireColor{ 0.0625f, 0.0625f, 1.0f };
@@ -1005,11 +1157,29 @@ void MTU::GS_Assignment_3::Init()
   m_BSPTree_TriPerPart = s_OctTreeMaxTriPerCell;
   //CreateBSPTree();
 #else
-  m_Octree_TriPerCell = s_OctTreeDefTriPerCell;
-  CreateOctTree();
 
-  m_BSPTree_TriPerPart = s_BSPTreeDefTriPerPart;
-  CreateBSPTree();
+  //if (std::filesystem::directory_entry dir{ "../Assets/Precomputed/Assignment3/OctTrees/256.OctTree" }; dir.exists() && dir.is_regular_file())
+  //{
+  //  loadOctTreeModel(dir.path());
+  //}
+  //else
+  {
+    //std::cout << "Failed to find precomputed OctTree, recomputing!" << std::endl;
+    m_Octree_TriPerCell = s_OctTreeDefTriPerCell;
+    CreateOctTree();
+  }
+
+  if (std::filesystem::directory_entry dir{ "../Assets/Precomputed/Assignment3/BSPTrees/256.BSPTree" }; dir.exists() && dir.is_regular_file())
+  {
+    loadBSPTreeModel(dir.path());
+  }
+  else
+  {
+    std::cout << "Failed to find precomputed BSPTree, recomputing!" << std::endl;
+    m_BSPTree_TriPerPart = s_BSPTreeDefTriPerPart;
+    CreateBSPTree();
+  }
+
 #endif
 
   m_bEditMode = false;
@@ -1098,9 +1268,11 @@ void MTU::GS_Assignment_3::Update(uint64_t dt)
 
     ImGui::Separator();
     ImGui::TextUnformatted("Spatial Partitioning");
-    IMGUI_SAMELINE_TOOLTIP_HELPER("Due to the use of recursion, the default triangles per cell is increased.\nLower it at risk of stack overflow.\n\nThe current minimum of 300 has been tested to work on an AMD Ryzen 7 5800HS");
+    IMGUI_SAMELINE_TOOLTIP_HELPER("The default triangles per cell/partition is increased.\n\nThe current minimum of 256 has been tested to work on an AMD Ryzen 7 5800HS");
+    
     ImGui::SliderInt("Tri per cell (OctTree)", &m_Octree_TriPerCell, s_OctTreeMinTriPerCell, s_OctTreeMaxTriPerCell);
     ImGui::SliderInt("Tri per part (BSPTree)", &m_BSPTree_TriPerPart, s_BSPTreeMinTriPerPart, s_BSPTreeMaxTriPerCell);
+    
     if (ImGui::Button("Recreate OctTree"))CreateOctTree();
     ImGui::SameLine();
     if (ImGui::Button("Destroy OctTree"))DestroyOctTree(m_bKeepOctTreeModel);
@@ -1111,9 +1283,60 @@ void MTU::GS_Assignment_3::Update(uint64_t dt)
     if (ImGui::Button("Destroy BSPTree"))DestroyBSPTree(m_bKeepBSPTreeModel);
     ImGui::SameLine();
     ImGui::Checkbox("Keep model (BSPTree)", &m_bKeepBSPTreeModel);
+
     ImGui::Checkbox("draw OctTree Bounds", &m_bDrawOctTreeBounds);
+    IMGUI_SAMELINE_TOOLTIP_HELPER("Unavailable on load, recompute OctTree to view this");
     ImGui::Checkbox("draw OctTree Triangles", &m_bDrawOctTreeTris);
     ImGui::Checkbox("draw BSPTree Triangles", &m_bDrawBSPTreeTris);
+
+    ImGui::Separator();
+    ImGui::TextUnformatted("Precomputed Trees");
+    IMGUI_SAMELINE_TOOLTIP_HELPER("Click an entry on the combo to load that precomputed tree.\n\nNote: OctTree bounds are not saved, recompute to see those.");
+    
+    if (ImGui::BeginCombo("Load (OctTree)", "Load Precomputed OctTree"))
+    {
+      if (std::filesystem::directory_entry dir{ "../Assets/Precomputed/Assignment3/OctTrees" }; dir.exists() && dir.is_directory())
+      {
+        for (auto const& file : std::filesystem::recursive_directory_iterator(dir))
+        {
+          if (file.is_directory())continue;
+          std::string fileName{ file.path().generic_string() };
+          fileName = fileName.substr(fileName.find_last_of('/'));
+          if (ImGui::Selectable(fileName.c_str()))
+          {
+            loadOctTreeModel(file.path());
+          }
+        }
+      }
+
+      ImGui::EndCombo();// OctTree combo
+    }
+
+    if (ImGui::BeginCombo("Load (BSPTree)", "Load Precomputed BSPTree"))
+    {
+      if (std::filesystem::directory_entry dir{ "../Assets/Precomputed/Assignment3/BSPTrees" }; dir.exists() && dir.is_directory())
+      {
+        for (auto const& file : std::filesystem::recursive_directory_iterator(dir))
+        {
+          if (file.is_directory())continue;
+          std::string fileName{ file.path().generic_string() };
+          fileName = fileName.substr(fileName.find_last_of('/'));
+          if (ImGui::Selectable(fileName.c_str()))
+          {
+            loadBSPTreeModel(file.path());
+          }
+        }
+      }
+
+      ImGui::EndCombo();// OctTree combo
+    }
+
+    // temp button to save
+    //if (ImGui::Button("SAVE BOTH TREES"))
+    //{
+    //  A3H::saveTreeModelToFile(m_OctTree, "../Assets/Precomputed/Assignment3/OctTrees/LatestSave.OctTree", m_Octree_TriPerCell);
+    //  A3H::saveTreeModelToFile(m_BSPTree, "../Assets/Precomputed/Assignment3/BSPTrees/LatestSave.BSPTree", m_BSPTree_TriPerPart);
+    //}
 
     // SCENE OBJECTS EDITOR (DISABLED FOR ASSIGNMENT 3)
     ImGui::Separator();
@@ -1121,7 +1344,7 @@ void MTU::GS_Assignment_3::Update(uint64_t dt)
     //IMGUI_SAMELINE_TOOLTIP_HELPER("You can edit the scene here.\nEdits are on a per object level.\nPlease recompute BV and BVH after making changes.");
     ImGui::SameLine();
     ImGui::Checkbox("Override Edit Lock", &m_bEditMode);
-    IMGUI_SAMELINE_TOOLTIP_HELPER("changes reflected on solid object.\nRecreate OctTree to see new OctTree.\nRecreate BSPTree to see new BSPTree");
+    IMGUI_SAMELINE_TOOLTIP_HELPER("changes reflected on solid object.\nRecreate OctTree to see new OctTree.\nRecreate BSPTree to see new BSPTree\n\nPrecomputed Trees use the default scene.\nAny changes made by overriding this will\nNOT be reflected upon loading.");
     if (false == m_bEditMode)ImGui::BeginDisabled();
     if (ImGui::BeginChild("Objects", ImVec2{ 0.0f, 7.5f * ImGui::GetFrameHeightWithSpacing() }, true))
     {
@@ -1470,6 +1693,15 @@ size_t MTU::GS_Assignment_3::getModelsVRAM() const noexcept
   return retval;
 }
 
+void MTU::GS_Assignment_3::loadOctTreeModel(std::filesystem::path inPath)
+{
+  DestroyOctTree(true);// keep model in case loading fails
+  if (false == A3H::loadTreeModelFromFile(m_OctTreeModel, m_OctTreeObjectIndexCounts, inPath, m_Octree_TriPerCell))
+  {
+    printWarning("Failed to load from selected file");
+  }
+}
+
 void MTU::GS_Assignment_3::CreateOctTree()
 {
   DestroyOctTree(false);
@@ -1505,6 +1737,15 @@ void MTU::GS_Assignment_3::DestroyOctTree(bool keepModel)
   m_OctTreeModel.destroyModel();
   m_OctTreeModel = vulkanModel{  };
   m_OctTreeObjectIndexCounts.clear();
+}
+
+void MTU::GS_Assignment_3::loadBSPTreeModel(std::filesystem::path inPath)
+{
+  DestroyBSPTree(true);// keep model in case loading fails
+  if (false == A3H::loadTreeModelFromFile(m_BSPTreeModel, m_BSPTreeObjectIndexCounts, inPath, m_BSPTree_TriPerPart))
+  {
+    printWarning("Failed to load from selected file");
+  }
 }
 
 void MTU::GS_Assignment_3::CreateBSPTree()

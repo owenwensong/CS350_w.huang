@@ -16,6 +16,7 @@
 #include <GameStateManager/GameStateBase.h>
 
 #include <variant>
+#include <filesystem>
 #include <Assignment/Camera.h>
 #include <Assignment/Geometry.h>
 #include <vulkanHelpers/vulkanModel.h>
@@ -214,9 +215,11 @@ namespace MTU
 
     size_t getModelsVRAM() const noexcept;
 
+    void loadOctTreeModel(std::filesystem::path inPath);
     void CreateOctTree();
     void DestroyOctTree(bool keepModel = false);
 
+    void loadBSPTreeModel(std::filesystem::path inPath);
     void CreateBSPTree();
     void DestroyBSPTree(bool keepModel = false);
 
@@ -245,12 +248,12 @@ namespace MTU
     A3H::IV     m_BSPTreeObjectIndexCounts;
 
     int m_Octree_TriPerCell;  // termination criteria for the octree
-    static constexpr int s_OctTreeMinTriPerCell{ 300 };
+    static constexpr int s_OctTreeMinTriPerCell{ 256 };
     static constexpr int s_OctTreeDefTriPerCell{ 2048 };
     static constexpr int s_OctTreeMaxTriPerCell{ 30000 };
 
     int m_BSPTree_TriPerPart;
-    static constexpr int s_BSPTreeMinTriPerPart{ 300 };
+    static constexpr int s_BSPTreeMinTriPerPart{ 256 };
     static constexpr int s_BSPTreeDefTriPerPart{ 2048 };
     static constexpr int s_BSPTreeMaxTriPerCell{ 30000 };
 
