@@ -4,13 +4,6 @@
  * @date    14 JUL 2022
  * @brief   Gamestate for assignment 3
  * 
- * 
- *          TODO:
- *            Freeing the octtree
- *            Polygon splitting on the octtree
- *            model load from polygon
- *            faces unused in buildocttree
- * 
  * Copyright (C) 2022 DigiPen Institute of Technology. All rights reserved.
 *******************************************************************************/
 
@@ -25,6 +18,10 @@
 #include <glm/gtc/quaternion.hpp>
 
 #include <fstream>
+
+#define A3H_PRECOMPUTE_SAVE_BUTTON false
+#define A3H_TRY_TO_USE_PRECOMPUTED_OCTTREE false
+#define A3H_TRY_TO_USE_PRECOMPUTED_BSPTREE true
 
 namespace A3H
 {
@@ -235,7 +232,6 @@ namespace A3H
       //std::cout << "iSpace: " << iSpace << std::endl;
     }
 
-    // TODO FIX TRIANGULATION
     std::unordered_map<glm::vec3, uint32_t, vec3Hasher> uniqueVerts;
 
     uint32_t nextOffset{ static_cast<uint32_t>(outPositions.size()) };
@@ -257,10 +253,10 @@ namespace A3H
         }
       }
 
-      // Triangulation
+      // Triangulation  (Triangle fan method)
       for (size_t i{ 0 }, t{ polyIndices.size() - 2 }; i < t; ++i)
       {
-        outIndices.emplace_back(polyIndices[i]);
+        outIndices.emplace_back(polyIndices[0]);
         outIndices.emplace_back(polyIndices[i + 1]);
         outIndices.emplace_back(polyIndices[i + 2]);
       }
@@ -1157,23 +1153,25 @@ void MTU::GS_Assignment_3::Init()
   m_BSPTree_TriPerPart = s_OctTreeMaxTriPerCell;
   //CreateBSPTree();
 #else
-
-  //if (std::filesystem::directory_entry dir{ "../Assets/Precomputed/Assignment3/OctTrees/256.OctTree" }; dir.exists() && dir.is_regular_file())
-  //{
-  //  loadOctTreeModel(dir.path());
-  //}
-  //else
+#if A3H_TRY_TO_USE_PRECOMPUTED_OCTTREE
+  if (std::filesystem::directory_entry dir{ "../Assets/Precomputed/Assignment3/OctTrees/256.OctTree" }; dir.exists() && dir.is_regular_file())
+  {
+    loadOctTreeModel(dir.path());
+  }
+  else
+#endif
   {
     //std::cout << "Failed to find precomputed OctTree, recomputing!" << std::endl;
     m_Octree_TriPerCell = s_OctTreeDefTriPerCell;
     CreateOctTree();
   }
-
+#if A3H_TRY_TO_USE_PRECOMPUTED_BSPTREE
   if (std::filesystem::directory_entry dir{ "../Assets/Precomputed/Assignment3/BSPTrees/256.BSPTree" }; dir.exists() && dir.is_regular_file())
   {
     loadBSPTreeModel(dir.path());
   }
   else
+#endif
   {
     std::cout << "Failed to find precomputed BSPTree, recomputing!" << std::endl;
     m_BSPTree_TriPerPart = s_BSPTreeDefTriPerPart;
@@ -1284,8 +1282,14 @@ void MTU::GS_Assignment_3::Update(uint64_t dt)
     ImGui::SameLine();
     ImGui::Checkbox("Keep model (BSPTree)", &m_bKeepBSPTreeModel);
 
-    ImGui::Checkbox("draw OctTree Bounds", &m_bDrawOctTreeBounds);
-    IMGUI_SAMELINE_TOOLTIP_HELPER("Unavailable on load, recompute OctTree to view this");
+    if (nullptr != m_OctTree)ImGui::Checkbox("draw OctTree Bounds", &m_bDrawOctTreeBounds);
+    else
+    {
+      ImGui::BeginDisabled();
+      ImGui::Checkbox("draw OctTree Bounds", &m_bDrawOctTreeBounds);
+      ImGui::EndDisabled();
+    }
+    IMGUI_SAMELINE_TOOLTIP_HELPER("Unavailable on precomputed data, recompute OctTree to view this");
     ImGui::Checkbox("draw OctTree Triangles", &m_bDrawOctTreeTris);
     ImGui::Checkbox("draw BSPTree Triangles", &m_bDrawBSPTreeTris);
 
@@ -1331,12 +1335,14 @@ void MTU::GS_Assignment_3::Update(uint64_t dt)
       ImGui::EndCombo();// OctTree combo
     }
 
-    // temp button to save
-    //if (ImGui::Button("SAVE BOTH TREES"))
-    //{
-    //  A3H::saveTreeModelToFile(m_OctTree, "../Assets/Precomputed/Assignment3/OctTrees/LatestSave.OctTree", m_Octree_TriPerCell);
-    //  A3H::saveTreeModelToFile(m_BSPTree, "../Assets/Precomputed/Assignment3/BSPTrees/LatestSave.BSPTree", m_BSPTree_TriPerPart);
-    //}
+    // Buttons to save OctTree & BSPTree, this is used for the precomputed files
+#if A3H_PRECOMPUTE_SAVE_BUTTON
+    if (ImGui::Button("SAVE BOTH TREES"))
+    {
+      A3H::saveTreeModelToFile(m_OctTree, "../Assets/Precomputed/Assignment3/OctTrees/LatestSave.OctTree", m_Octree_TriPerCell);
+      A3H::saveTreeModelToFile(m_BSPTree, "../Assets/Precomputed/Assignment3/BSPTrees/LatestSave.BSPTree", m_BSPTree_TriPerPart);
+    }
+#endif
 
     // SCENE OBJECTS EDITOR (DISABLED FOR ASSIGNMENT 3)
     ImGui::Separator();
@@ -1699,6 +1705,10 @@ void MTU::GS_Assignment_3::loadOctTreeModel(std::filesystem::path inPath)
   if (false == A3H::loadTreeModelFromFile(m_OctTreeModel, m_OctTreeObjectIndexCounts, inPath, m_Octree_TriPerCell))
   {
     printWarning("Failed to load from selected file");
+  }
+  else
+  {
+    m_bDrawOctTreeBounds = false;
   }
 }
 
