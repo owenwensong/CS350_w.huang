@@ -120,10 +120,12 @@ MTU::GS_Assignment_1::GS_Assignment_1(GameStateManager& rGSM) :
       pipelineSetup.m_PushConstantRangeVert = vulkanPipeline::createPushConstantInfo<glm::mat4>(VK_SHADER_STAGE_VERTEX_BIT);
       //pipelineSetup.m_PushConstantRangeFrag
       pipelineSetup.m_PolygonMode = VkPolygonMode::VK_POLYGON_MODE_LINE;
+      pipelineSetup.m_CullMode = VkCullModeFlagBits::VK_CULL_MODE_NONE;
 
       // create the same cus I'm lazy but want 2 global colors, 1 for the
       // collision objects and another for the props.
       vkWin->createPipelineInfo(m_Pipelines[0], pipelineSetup);
+      pipelineSetup.m_CullMode = VkCullModeFlagBits::VK_CULL_MODE_BACK_BIT;
       vkWin->createPipelineInfo(m_Pipelines[1], pipelineSetup);
     }
   }
@@ -196,9 +198,12 @@ void MTU::GS_Assignment_1::Update(uint64_t dt)
 #define IMGUI_SAMELINE_TOOLTIP_HELPER(strA) ImGui::SameLine(); ImGui::TextUnformatted("(?)"); if (ImGui::IsItemHovered()) { ImGui::BeginTooltip(); ImGui::TextUnformatted(strA); ImGui::EndTooltip(); }
 #define IMGUI_SAMELINE_TOOLTIPV_HELPER(strA, ...) ImGui::SameLine(); ImGui::TextUnformatted("(?)"); if (ImGui::IsItemHovered()) { ImGui::BeginTooltip(); ImGui::Text(strA, __VA_ARGS__); ImGui::EndTooltip(); }
 
-  ImGui::ShowMetricsWindow();
-
-  if (ImGui::Begin("CS350Menu"))
+  static constexpr ImGuiWindowFlags CS350MenuFlags
+  {
+    ImGuiWindowFlags_NoMove
+    | ImGuiWindowFlags_NoResize
+  };
+  if (ImGui::Begin("CS350Menu", nullptr, CS350MenuFlags))
   {
     if (ImGui::Button("Restart Assignment 1", ImVec2{ ImGui::GetWindowWidth(), 0 }))GSM.setNextGameState(GS::E_RESTART);
     if (ImGui::Button("Change to Assignment 2", ImVec2{ ImGui::GetWindowWidth(), 0 }))GSM.setNextGameState(GS::E_ASSIGNMENT_2);

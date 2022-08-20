@@ -889,13 +889,17 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
 
   // ***************************************************************************
   // **************************************************************** ImGui ****
-  ImGui::ShowMetricsWindow();
 
 #define IMGUI_SAMELINE_TOOLTIP_HELPER(strA) ImGui::SameLine(); ImGui::TextUnformatted("(?)"); if (ImGui::IsItemHovered()) { ImGui::BeginTooltip(); ImGui::TextUnformatted(strA); ImGui::EndTooltip(); }
 #define IMGUI_SAMELINE_TOOLTIPV_HELPER(strA, ...) ImGui::SameLine(); ImGui::TextUnformatted("(?)"); if (ImGui::IsItemHovered()) { ImGui::BeginTooltip(); ImGui::Text(strA, __VA_ARGS__); ImGui::EndTooltip(); }
 #define IMGUI_COLOR_CHECKBOX_HELPER(strA, boolB, colorC) ImGui::ColorButton("color: " strA, ImVec4{ colorC.r, colorC.g, colorC.b, 1.0f }); ImGui::SameLine(); ImGui::Checkbox(strA, &boolB)
-
-  if (ImGui::Begin("CS350Menu"))
+  
+  static constexpr ImGuiWindowFlags CS350MenuFlags
+  {
+    ImGuiWindowFlags_NoMove
+    | ImGuiWindowFlags_NoResize
+  };
+  if (ImGui::Begin("CS350Menu", nullptr, CS350MenuFlags))
   {
     if (ImGui::Button("Change to Assignment 1", ImVec2{ ImGui::GetWindowWidth(), 0 }))GSM.setNextGameState(GS::E_ASSIGNMENT_1);
     if (ImGui::Button("Restart Assignment 2", ImVec2{ ImGui::GetWindowWidth(), 0 }))GSM.setNextGameState(GS::E_RESTART);

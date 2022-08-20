@@ -1219,13 +1219,17 @@ void MTU::GS_Assignment_3::Update(uint64_t dt)
 
   // ***************************************************************************
   // **************************************************************** ImGui ****
-  ImGui::ShowMetricsWindow();
 
 #define IMGUI_SAMELINE_TOOLTIP_HELPER(strA) ImGui::SameLine(); ImGui::TextUnformatted("(?)"); if (ImGui::IsItemHovered()) { ImGui::BeginTooltip(); ImGui::TextUnformatted(strA); ImGui::EndTooltip(); }
 #define IMGUI_SAMELINE_TOOLTIPV_HELPER(strA, ...) ImGui::SameLine(); ImGui::TextUnformatted("(?)"); if (ImGui::IsItemHovered()) { ImGui::BeginTooltip(); ImGui::Text(strA, __VA_ARGS__); ImGui::EndTooltip(); }
 #define IMGUI_COLOR_CHECKBOX_HELPER(strA, boolB, colorC) ImGui::ColorButton("color: " strA, ImVec4{ colorC.r, colorC.g, colorC.b, 1.0f }); ImGui::SameLine(); ImGui::Checkbox(strA, &boolB)
 
-  if (ImGui::Begin("CS350Menu"))
+  static constexpr ImGuiWindowFlags CS350MenuFlags
+  {
+    ImGuiWindowFlags_NoMove
+    | ImGuiWindowFlags_NoResize
+  };
+  if (ImGui::Begin("CS350Menu", nullptr, CS350MenuFlags))
   {
     if (ImGui::Button("Change to Assignment 1", ImVec2{ ImGui::GetWindowWidth(), 0 }))GSM.setNextGameState(GS::E_ASSIGNMENT_1);
     if (ImGui::Button("Change to Assignment 2", ImVec2{ ImGui::GetWindowWidth(), 0 }))GSM.setNextGameState(GS::E_ASSIGNMENT_2);
@@ -1276,8 +1280,8 @@ void MTU::GS_Assignment_3::Update(uint64_t dt)
     ImGui::TextUnformatted("Spatial Partitioning");
     IMGUI_SAMELINE_TOOLTIP_HELPER("The default triangles per cell/partition is increased.\n\nThe current minimum of 256 has been tested to work on an AMD Ryzen 7 5800HS");
     
-    ImGui::SliderInt("Tri per cell (OctTree)", &m_Octree_TriPerCell, s_OctTreeMinTriPerCell, s_OctTreeMaxTriPerCell);
-    ImGui::SliderInt("Tri per part (BSPTree)", &m_BSPTree_TriPerPart, s_BSPTreeMinTriPerPart, s_BSPTreeMaxTriPerCell);
+    ImGui::SliderInt("Tri per cell (Oct)", &m_Octree_TriPerCell, s_OctTreeMinTriPerCell, s_OctTreeMaxTriPerCell);
+    ImGui::SliderInt("Tri per part (BSP)", &m_BSPTree_TriPerPart, s_BSPTreeMinTriPerPart, s_BSPTreeMaxTriPerCell);
     
     if (ImGui::Button("Recreate OctTree"))CreateOctTree();
     ImGui::SameLine();
