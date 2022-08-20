@@ -144,6 +144,9 @@
     <ClInclude Include="include\GameStateManager\GS_Assignment_3.h">
       <Filter>Header Files\GameStateManager</Filter>
     </ClInclude>
+    <ClInclude Include="include\GameStateManager\GS_Menu.h">
+      <Filter>Header Files\GameStateManager</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\handlers\windowHandler.cpp">
@@ -213,6 +216,9 @@
       <Filter>Source Files\Utility</Filter>
     </ClCompile>
     <ClCompile Include="src\GameStateManager\GS_Assignment_3.cpp">
+      <Filter>Source Files\GameStateManager</Filter>
+    </ClCompile>
+    <ClCompile Include="src\GameStateManager\GS_Menu.cpp">
       <Filter>Source Files\GameStateManager</Filter>
     </ClCompile>
   </ItemGroup>

@@ -17,7 +17,8 @@ namespace MTU
   enum class GS
   {
     E_FIRST = 0,
-    E_ASSIGNMENT_1 = E_FIRST,
+    E_MENU = E_FIRST,
+    E_ASSIGNMENT_1,
     E_ASSIGNMENT_2,
     E_ASSIGNMENT_3,
 

@@ -717,6 +717,7 @@ void MTU::GS_Assignment_2::Init()
     inputs.getCursorPos(currCursorPos.x, currCursorPos.y);
     m_Cam.updateCursor(currCursorPos, false);
   }
+  m_Cam.updateForwardVector();
   m_Cam.updateMatrix();
   m_LightColor = glm::vec3{ 0.5f, 0.5f, 0.75f };
   m_CamMoveSpeed = 2.5f;
@@ -879,8 +880,9 @@ void MTU::GS_Assignment_2::Init()
 void MTU::GS_Assignment_2::Update(uint64_t dt)
 {
   if (inputs.isTriggered(VK_F1))GSM.setNextGameState(GS::E_ASSIGNMENT_1);
-  else if (inputs.isTriggered(VK_F2))GSM.setNextGameState(GS::E_RESTART);
-  else if (inputs.isTriggered(VK_F3))GSM.setNextGameState(GS::E_ASSIGNMENT_3);
+  if (inputs.isTriggered(VK_F2))GSM.setNextGameState(GS::E_RESTART);
+  if (inputs.isTriggered(VK_F3))GSM.setNextGameState(GS::E_ASSIGNMENT_3);
+  if (inputs.isTriggered(VK_F4))GSM.setNextGameState(GS::E_MENU);
 
   constexpr float reciprocalFrequency{ 1.0f / MTU::Timer::clockFrequency };
   float fdt{ dt * reciprocalFrequency };
@@ -895,10 +897,16 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
 
   if (ImGui::Begin("CS350Menu"))
   {
+    if (ImGui::Button("Change to Assignment 1", ImVec2{ ImGui::GetWindowWidth(), 0 }))GSM.setNextGameState(GS::E_ASSIGNMENT_1);
+    if (ImGui::Button("Restart Assignment 2", ImVec2{ ImGui::GetWindowWidth(), 0 }))GSM.setNextGameState(GS::E_RESTART);
+    if (ImGui::Button("Change to Assignment 3", ImVec2{ ImGui::GetWindowWidth(), 0 }))GSM.setNextGameState(GS::E_ASSIGNMENT_3);
+    if (ImGui::Button("Return to main menu", ImVec2{ ImGui::GetWindowWidth(), 0 }))GSM.setNextGameState(GS::E_MENU);
+    if (ImGui::Button("Quit Demo", ImVec2{ ImGui::GetWindowWidth(), 0 }))GSM.setNextGameState(GS::E_QUIT);
+
     ImGui::TextUnformatted("Hover tooltips:");
     IMGUI_SAMELINE_TOOLTIPV_HELPER("These (?) tooltips contain more information to use the program as intended\n\nExtra info:\n\nVertices: %d (total number of vertices in the scene)\nObjects RAM: %d B (Memory used to store per object pos, rot, scale, etc)\nModels RAM:  %d B (Memory used to store positions to calculate BVs)\nModels VRAM: %d B (GPU Memory used to store model data)", static_cast<int>(getNumSceneVertices()), static_cast<int>(getObjectsRam()), static_cast<int>(getModelsRAM()), static_cast<int>(getModelsVRAM()));
     ImGui::TextUnformatted("Window controls");
-    IMGUI_SAMELINE_TOOLTIPV_HELPER("F11: Fullscreen\n\n%s", "F1: Go to Assignment 1 state\nF2: Restart Assignment 2 state\nF1: Go to Assignment 3 state");
+    IMGUI_SAMELINE_TOOLTIPV_HELPER("F11: Fullscreen\n\n%s\nF4: Return to main menu", "F1: Go to Assignment 1 state\nF2: Restart Assignment 2 state\nF1: Go to Assignment 3 state");
     ImGui::TextUnformatted("Camera controls");
     IMGUI_SAMELINE_TOOLTIP_HELPER("Right Mouse Button (hold): look around\nW: Move Forward\nA: Move Left\nS: Move Back\nD: Move Right\nSPACE: Move Upwards\nCONTROL: Move Downwards\nSHIFT (hold): Use speed multiplier");
 
@@ -1015,7 +1023,7 @@ void MTU::GS_Assignment_2::Update(uint64_t dt)
           if (ImGui::BeginCombo("Model", A2H::namesAss2Models[pObject->m_Model]))
           {
 
-            for (size_t j{ 0 }; j < A2H::E_NUM_MODELS; ++j)
+            for (int j{ 0 }; j < A2H::E_NUM_MODELS; ++j)
             {
               if (ImGui::Selectable(A2H::namesAss2Models[j], j == pObject->m_Model))
               {

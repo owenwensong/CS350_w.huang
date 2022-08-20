@@ -38,8 +38,8 @@ int main()
   }
 
   {
-    MTU::GameStateManager GSM{ windowSetup{ 1280, 720, false, true, false, 0.0f, 0.0f , 0.0f, 1.0f , L"CS350 Assignment 3 | Owen Huang Wensong"sv } };
-    GSM.setNextGameState(MTU::GS::E_ASSIGNMENT_3);
+    MTU::GameStateManager GSM{ windowSetup{ 1280, 720, false, true, false, 0.0f, 0.0f , 0.0f, 1.0f , L"CS350 Demo | Owen Huang Wensong"sv } };
+    GSM.setNextGameState(MTU::GS::E_MENU);
     GSM.initImgui();
     GSM.Run();
   }

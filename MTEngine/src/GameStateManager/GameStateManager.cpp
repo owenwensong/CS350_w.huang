@@ -19,6 +19,7 @@ bool MTU::GameStateManager::s_bImGuiInUse{ false };
 // ************************************************************* GameStates ****
 
 #include <GameStateManager/GameStateBase.h>
+#include <GameStateManager/GS_Menu.h>
 #include <GameStateManager/GS_Assignment_1.h>
 #include <GameStateManager/GS_Assignment_2.h>
 #include <GameStateManager/GS_Assignment_3.h>
@@ -29,6 +30,9 @@ bool updateGameState(MTU::GameStateManager& rGSM, std::unique_ptr<MTU::GameState
   switch (nextGS)
   {
 #define RC_HELPER(a) reinterpret_cast<MTU::GameState*>(a)
+  case MTU::GS::E_MENU:
+    upGS.reset(RC_HELPER(new MTU::GS_Menu{ rGSM }));
+    return true;
   case MTU::GS::E_ASSIGNMENT_1:
     upGS.reset(RC_HELPER(new MTU::GS_Assignment_1{ rGSM }));
     return true;

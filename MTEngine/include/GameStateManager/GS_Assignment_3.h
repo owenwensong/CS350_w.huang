@@ -189,7 +189,7 @@ namespace A3H // Assignment 3 Helper namespace
 
 namespace MTU
 {
-  // Quick and dirty GameState class for CS350 assignment 2
+  // Quick and dirty GameState class for CS350 assignment 3
   class GS_Assignment_3 : public GameState
   {
   public:
